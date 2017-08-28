@@ -46,6 +46,8 @@ Optional inputs
 
 **Prior networks:** The config file should contains one row per prior network. The first column contains the network's name, the second column contains the path to the prior network, and the third column contains the confidence in that network (the higher the confidence, the more effect that prior will have). The prior file in the second column, should have one edge per row, the first column contains the regulator's name, the second column contains the target gene's name, and the third column contains the confidence in that edge (the higher the confidence, the more we trust in that edge). For an example, see example/net1_config.txt and example/net1_net.txt
 
+**Resume from incomplete run:** Use -a option to continue from an incomplete run. It will load the incomplete inferred network, module assignments, and iteration count, and will resume from there.
+
 How to run
 ----------
 To run, change to MERLIN directory and run:

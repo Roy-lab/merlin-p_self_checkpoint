@@ -67,7 +67,7 @@ Framework::init(int argc, char** argv)
 	opterr=1;
 	int oldoptind=optind;
  
-	while(optret=getopt(argc,argv,"o:k:d:v:l:p:r:c:h:f:q:")!=-1)
+	while(optret=getopt(argc,argv,"o:k:d:v:l:p:r:c:h:f:q:a")!=-1)
 	{
 		if(optret=='?')
 		{
@@ -123,6 +123,11 @@ Framework::init(int argc, char** argv)
 				//strncpy(outFilePrefix, optarg, strlen(optarg) - 4);
 				//outFilePrefix[strlen(optarg)-4] = '\0';
 
+				break;
+			}
+			case 'a':
+			{
+				metaLearner.setShouldLoad(true);
 				break;
 			}
 			case 'o': // output file - predictions

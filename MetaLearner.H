@@ -54,12 +54,16 @@ class MetaLearner
 	int setRandom(bool);
 	int readModuleMembership(const char*);
 	int setDefaultModuleMembership();
+	int setShouldLoad(bool f);
 
 	//int setMotifGraph(const char*);
 	//int setChIPGraph(const char*);
 	//int setBeta_ChIP(double bval);
 	int setPriorGraph_All(const char*);
 	private:
+	bool shouldLoad;
+	int writeIterCnt(int,int);
+	int readIterCnt(const char*);
 	
 	//map<int,INTDBLMAP*> edgePriors_Motif;
 	//map<int,INTDBLMAP*> edgePriors_ChIP;
@@ -105,7 +109,7 @@ class MetaLearner
 	int getEdgeVars(string&, char*, char*);
 	bool checkMBSize(INTINTMAP*,int,int,int);
 	bool checkMBSize(int,int,int,int);
-	int populateGraphsFromFile();
+	int populateGraphsFromFile(const char*);
 	
 	int normalizeWeight(INTDBLMAP&);
 	//Update the potentials to reflect the new covariance and mean estimates and also recompute the likelihood.
@@ -176,5 +180,11 @@ class MetaLearner
 	int currFold;
 	char foldoutDirName[1024];
 	int specificFold;
+	map<string,int> resumeEdges;
+	double loadInitPLLScore();
+	int writePLLScore();
+	int loadLastUpdate();
+	int writeLastUpdate();
+	int doTar();
 };
 #endif

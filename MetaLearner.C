@@ -30,6 +30,7 @@
 
 MetaLearner::MetaLearner()
 {
+	shouldLoad = false;
 	restrictedFName[0]='\0';
 	trueGraphFName[0]='\0';
 	preRandomizeSplit=false;
@@ -38,10 +39,19 @@ MetaLearner::MetaLearner()
 	lambda=0;
 	clusterThreshold=0.5;
 	specificFold=-1;
+	holdoutEvMgr=NULL;
+	resumeEdges.clear();
 }
 
 MetaLearner::~MetaLearner()
 {
+}
+
+int
+MetaLearner::setShouldLoad(bool f)
+{
+	shouldLoad = f;
+	return 0;
 }
 
 int
@@ -616,7 +626,7 @@ MetaLearner::doCrossValidation(int foldCnt)
 			char outputDir[1024];
 			sprintf(outputDir,"%s/fold%d",outLocMap[eIter->first].c_str(),f);
 			char foldOutputDirCmd[1024];
-			sprintf(foldOutputDirCmd,"mkdir %s",outputDir);
+			sprintf(foldOutputDirCmd,"mkdir -p %s",outputDir);
 			system(foldOutputDirCmd);
 		}
 		clearFoldSpecData();
@@ -770,8 +780,36 @@ MetaLearner::start_gradualMBIncrease(int f)
 	}
 	if(strlen(trueGraphFName)==0)
 	{
-		
-		double currGlobalScore=getInitPLLScore();
+		double currGlobalScore = 0;
+		int titer=-1;
+		if (shouldLoad)
+		{
+			cout << "Read modules..." << endl;
+			string& dirname=outLocMap[evMgrSet.begin()->first];
+			char mname[1024];
+			sprintf(mname,"%s/fold%d/modules.txt",dirname.c_str(),f);
+			readModuleMembership(mname);
+			cout << "Read networks..." << endl;
+			char fname[1024];
+			sprintf(fname,"%s/prediction_k%d.txt",foldoutDirName,currK+1);
+			populateGraphsFromFile(fname);
+			cout << "Read iterations..." << endl;
+			char iname[1024];
+			sprintf(iname,"%s/fold%d/iter.txt",dirname.c_str(),f);
+			titer = readIterCnt(iname);
+			cout << "TITER:" << titer << endl;
+			//for(map<string,int>::iterator mitr=geneModuleID.begin(); mitr!=geneModuleID.end();mitr++)
+			//{
+			//	variableStatus[mitr->first]=titer;
+			//}
+			currGlobalScore=loadInitPLLScore();
+			loadLastUpdate();
+		}
+		else
+		{
+			currGlobalScore=getInitPLLScore();
+		}
+
 		double initScore=getInitPrior();
 		//currGlobalScore=currGlobalScore+initScore;
 		int showid=0;
@@ -780,7 +818,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 		vector<int> randOrder;
 		while(moduleiter<1 && notConvergedTop)
 		{
-			int iter=0;
+			int iter=titer+1;
 			bool notConverged=true;
 			while(notConverged && iter<50)
 			{
@@ -824,6 +862,10 @@ MetaLearner::start_gradualMBIncrease(int f)
 							continue;	
 						}
 					}		
+					else
+					{
+						variableStatus[v->getName()]=iter;
+					}
 					//collectMoves(currK,subiter);
 					struct timeval begintime_v;
 					struct timeval endtime_v;
@@ -837,16 +879,6 @@ MetaLearner::start_gradualMBIncrease(int f)
 					}
 					sortMoves();
 					makeMoves();
-					double newScore=getPLLScore();
-					//double newImprScore=getPriorChange();
-					//newScore=newScore+newImprScore;
-					double diff=newScore-currGlobalScore;
-					if(diff<=convThreshold)
-					{
-					//	notConverged=false;
-					}
-					//dumpAllGraphs(currK,f,iter);
-					currGlobalScore=newScore;
 					//cout <<"Current iter " << iter << " Score after beta-theta " << newScore << endl;
 					for(map<int,INTINTMAP*>::iterator cIter=affectedVariables.begin();cIter!=affectedVariables.end();cIter++)
 					{
@@ -861,6 +893,8 @@ MetaLearner::start_gradualMBIncrease(int f)
 					//printf("Time elapsed for one var %uj secs %d microsec\n",(unsigned int)(endtime_v.tv_sec-begintime_v.tv_sec),(unsigned int)(endtime_v.tv_usec-begintime_v.tv_usec));
 				}
 				gettimeofday(&endtime,&endtimezone);
+				double newScore=getPLLScore();
+				currGlobalScore=newScore;
 				//printf("Time elapsed for all vars %d mins %d secs %d microsec\n", (unsigned int)(endtimezone.tz_minuteswest-begintimezone.tz_minuteswest), (unsigned int)(endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec));
 				if((currGlobalScore-scorePremodule)<=convThreshold)
 				{
@@ -870,9 +904,14 @@ MetaLearner::start_gradualMBIncrease(int f)
 				{
 					redefineModules_Global();
 				}
-				iter++;
 				scorePremodule=currGlobalScore;
 				dumpAllGraphs(currK,f,iter);
+				writeIterCnt(f,iter);
+				writePLLScore();
+				writeLastUpdate();
+				doTar();
+				iter++;
+				//cout <<"Current Score " << currGlobalScore << endl;
 			}
 			moduleiter++;
 		}
@@ -1033,6 +1072,132 @@ MetaLearner::getTopRegs(map<int,int>& topRegs)
 	return 0;
 }
 
+int
+MetaLearner::loadLastUpdate()
+{
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char aFName[1024];
+	sprintf(aFName,"%s/fold%d/last.txt",dirname.c_str(),currFold);
+	ifstream inFile(aFName);
+	char buffer[1024];
+	VSET& varSet=varManager->getVariableSet();
+	while(inFile.good())
+	{	
+		inFile.getline(buffer,1023);
+		if(strlen(buffer)<=0)
+		{
+			continue;
+		}
+		char* tok=strtok(buffer,"\t");
+		int tokCnt=0;
+		Variable* v=NULL;
+		int titer=0;
+		while(tok!=NULL)
+		{
+			if(tokCnt==0)
+			{
+				int vid=varManager->getVarID(tok);
+				v=varSet[vid];
+			}
+			else
+			{
+				titer=atoi(tok);
+			}
+			tok=strtok(NULL,"\t");
+			tokCnt++;
+		}
+		variableStatus[v->getName()]=titer;
+	}
+	return 0;
+}
+
+int
+MetaLearner::writeLastUpdate()
+{
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char aFName[1024];
+	sprintf(aFName,"%s/fold%d/last.txt",dirname.c_str(),currFold);
+	ofstream outFile(aFName);
+	VSET& varSet=varManager->getVariableSet();
+	for(VSET_ITER vIter=varSet.begin();vIter!=varSet.end();vIter++)
+	{
+		Variable* var=varSet[vIter->first];
+		if(geneModuleID.find(var->getName())==geneModuleID.end())
+		{
+			continue;
+		}
+		outFile << var->getName() << "\t" << variableStatus[var->getName()] << endl;
+	}
+	outFile.close();
+	return 0;
+}
+
+double
+MetaLearner::loadInitPLLScore()
+{
+	double initScore=0;
+
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char aFName[1024];
+	sprintf(aFName,"%s/fold%d/pll.txt",dirname.c_str(),currFold);
+	ifstream inFile(aFName);
+	char buffer[1024];
+	VSET& varSet=varManager->getVariableSet();
+	INTDBLMAP* plls=new INTDBLMAP;
+	currPLLMap[evMgrSet.begin()->first]=plls;
+	while(inFile.good())
+	{	
+		inFile.getline(buffer,1023);
+		if(strlen(buffer)<=0)
+		{
+			continue;
+		}
+		char* tok=strtok(buffer,"\t");
+		int tokCnt=0;
+		Variable* v=NULL;
+		double val=0;
+		while(tok!=NULL)
+		{
+			if(tokCnt==0)
+			{
+				int vid=varManager->getVarID(tok);
+				v=varSet[vid];
+			}
+			else
+			{
+				val=atof(tok);
+			}
+			tok=strtok(NULL,"\t");
+			tokCnt++;
+		}
+		(*plls)[v->getID()] = val;
+		initScore += val;
+	}
+	return initScore;
+}
+
+int
+MetaLearner::writePLLScore()
+{
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char aFName[1024];
+	sprintf(aFName,"%s/fold%d/pll.txt",dirname.c_str(),currFold);
+	ofstream outFile(aFName);
+	VSET& varSet=varManager->getVariableSet();
+	INTDBLMAP* plls = currPLLMap[evMgrSet.begin()->first];
+	for(VSET_ITER vIter=varSet.begin();vIter!=varSet.end();vIter++)
+	{
+		Variable* var=varSet[vIter->first];
+		if(geneModuleID.find(var->getName())==geneModuleID.end())
+		{
+			continue;
+		}
+		double newPLL_s=(*plls)[vIter->first];
+		outFile << var->getName() << "\t" << newPLL_s << endl;
+	}
+	outFile.close();
+	return 0;
+}
 
 double
 MetaLearner::getInitPLLScore()
@@ -1049,6 +1214,10 @@ MetaLearner::getInitPLLScore()
 			continue;
 		}
 		Variable* var=varSet[vIter->first];
+		if(geneModuleID.find(var->getName())==geneModuleID.end())
+		{
+			continue;
+		}
 		double newPLL_s=getNewPLLScore_Condition(-1,vIter->first,NULL);
 		double priorScore=varNeighborhoodPrior[vIter->first];
 		(*plls)[vIter->first]=newPLL_s+priorScore;
@@ -1833,6 +2002,10 @@ MetaLearner::collectMoves(int currK,int rind)
 			{
 				continue;
 			}
+			if(resumeEdges.find(edgeKey)!=resumeEdges.end())
+			{
+				continue;
+			}
 			testedEdges[edgeKey]=0;
 			//Generate next condition assignments
 			if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
@@ -2029,7 +2202,8 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 			Variable* aVar=varSet[mIter->first];
 			dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
 			double eprior=getEdgePrior(mIter->first,v->getID());
-			double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
+			//double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
+			double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 			double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 			double edgeProbOld=1/(1+exp(-1*(eprior)));
 			minus=minus+log(1-edgeProbOld);
@@ -2469,7 +2643,7 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 	{
 		currIndegree=moduleIndegree[mID];
 	}
-	if(currIndegree->find(v->getName())==currIndegree->end())
+	if(currIndegree->find(u->getName())==currIndegree->end())
 	{
 		//cout <<"Adding new regulator " << u->getName() <<" to module " << mID << endl;
 		(*currIndegree)[u->getName()]=1;
@@ -2616,9 +2790,9 @@ MetaLearner::checkMBSize(int cid, int u,int v, int currK)
 }
 
 int
-MetaLearner::populateGraphsFromFile()
+MetaLearner::populateGraphsFromFile(const char* aFName)
 {
-	ifstream inFile(trueGraphFName);
+	ifstream inFile(aFName);
 	char buffer[1024];
 	VSET& varSet=varManager->getVariableSet();
 	while(inFile.good())
@@ -2635,7 +2809,7 @@ MetaLearner::populateGraphsFromFile()
 		INTINTMAP condSet;
 		for(map<int,EvidenceManager*>::iterator eIter=evMgrSet.begin();eIter!=evMgrSet.end();eIter++)
 		{
-			condSet[eIter->first]=0;
+			condSet[eIter->first]=1;
 		}
 		while(tok!=NULL)
 		{
@@ -2649,13 +2823,45 @@ MetaLearner::populateGraphsFromFile()
 				int vid=varManager->getVarID(tok);
 				v=varSet[vid];
 			}
+			/*
 			else
 			{
 				int cid=atoi(tok);
 				condSet[cid]=1;
 			}
+			*/
 			tok=strtok(NULL,"\t");
 			tokCnt++;
+		}
+
+		int mID=geneModuleID[v->getName()];
+		map<string,int>* currIndegree=NULL;
+		if(moduleIndegree.find(mID)==moduleIndegree.end())
+		{
+			currIndegree=new map<string,int>;
+			moduleIndegree[mID]=currIndegree;
+		}
+		else
+		{
+			currIndegree=moduleIndegree[mID];
+		}
+		if(currIndegree->find(u->getName())==currIndegree->end())
+		{
+			//cout <<"Adding new regulator " << u->getName() <<" to module " << mID << endl;
+			(*currIndegree)[u->getName()]=1;
+		}
+		else
+		{	
+			//cout <<"Updating regulator " << u->getName() <<" to module " << mID << endl;
+			(*currIndegree)[u->getName()]=(*currIndegree)[u->getName()]+1;
+		}
+		if(regulatorModuleOutdegree.find(u->getName())==regulatorModuleOutdegree.end())
+		{
+			regulatorModuleOutdegree[u->getName()]=1;
+		}
+		else
+		{
+			regulatorModuleOutdegree[u->getName()]=regulatorModuleOutdegree[u->getName()]+1;
 		}
 
 		/*string condKey;
@@ -2675,8 +2881,13 @@ MetaLearner::populateGraphsFromFile()
 			FactorGraph* fg=fgGraphSet[cIter->first];
 			SlimFactor* sFactor=fg->getFactorAt(u->getID());
 			SlimFactor* dFactor=fg->getFactorAt(v->getID());
-			sFactor->mergedMB[dFactor->fId]=0;
+			//sFactor->mergedMB[dFactor->fId]=0;
 			dFactor->mergedMB[sFactor->fId]=0;
+			string edgeKey;
+			edgeKey.append(u->getName().c_str());
+			edgeKey.append("\t");
+			edgeKey.append(v->getName().c_str());
+			resumeEdges[edgeKey]=0;
 		}
 	}
 	//Populate all the potentials of all the graphs
@@ -3181,5 +3392,52 @@ MetaLearner::redefineModules_Global()
 		geneModuleID[gIter->first]=largestModuleID;
 	}
 	genesWithNoNeighbors.clear();
+	return 0;
+}
+
+int 
+MetaLearner::writeIterCnt(int currFold, int iter)
+{
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char aFName[1024];
+	sprintf(aFName,"%s/fold%d/iter.txt",dirname.c_str(),currFold);
+	ofstream outFile(aFName);
+	outFile << iter << endl;
+	outFile.close();
+	return 0;
+}
+
+int
+MetaLearner::readIterCnt(const char* aFName)
+{
+	int iter = 0;
+	ifstream inFile(aFName);
+	inFile >> iter;
+	inFile.close();
+	return iter;
+}
+
+int
+MetaLearner::doTar()
+{
+	char tarCmd[1024];
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	char dname[1024];
+	sprintf(dname,"%s",dirname.c_str());
+	int l=strlen(dname)-1;
+	while (l>0)
+	{
+		if (dname[l]=='/')
+		{
+			dname[l]=0;
+		}
+		else
+		{
+			break;
+		}
+		l--;
+	}
+	sprintf(tarCmd,"tar cvzf %s.tar.gz %s",dname,dname);
+	system(tarCmd);
 	return 0;
 }

@@ -2792,6 +2792,8 @@ MetaLearner::checkMBSize(int cid, int u,int v, int currK)
 int
 MetaLearner::populateGraphsFromFile(const char* aFName)
 {
+	moduleIndegree.clear();
+	regulatorModuleOutdegree.clear();
 	ifstream inFile(aFName);
 	char buffer[1024];
 	VSET& varSet=varManager->getVariableSet();

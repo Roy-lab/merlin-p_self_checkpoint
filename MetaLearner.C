@@ -1520,7 +1520,8 @@ MetaLearner::getPredictionError_Holdout(int foldid)
 					cout <<"Found null for factor="<< sFactor->fId
 						<< "variable=" <<varSet[sFactor->fId]->getName() << endl;
 				}
-				if(evidMap->find(vId)==evidMap->end())
+				//if(evidMap->find(vId)==evidMap->end())
+				if(evidMap->size() <= vId || vId<0)
 				{
 					cout <<"Skipping " << vIter->first << endl;
 					continue;

@@ -41,6 +41,7 @@ MetaLearner::MetaLearner()
 	specificFold=-1;
 	holdoutEvMgr=NULL;
 	resumeEdges.clear();
+	convThreshold=1e-3;
 }
 
 MetaLearner::~MetaLearner()

@@ -618,12 +618,15 @@ PotentialManager::estimateAllMeanCov(bool random, INTDBLMAP& gMean, map<int,INTD
 int
 PotentialManager::estimateCovariance(bool random,INTDBLMAP* vcov, int uId, int vId)
 {
+	INTINTMAP& trainEvidSet=evMgr->getTrainingSet();
+	int evidCnt=trainEvidSet.size();
+	double delta = (0.001)/((double)(evidCnt-1));
 	double uc,vc,uvc;
 	evMgr->estimateCovariance(uId,vId,uc,vc,uvc);
 	INTDBLMAP* ucov=globalCovar[uId];
 	if(uId==vId)
 	{
-		(*ucov)[uId]=uc;
+		(*ucov)[uId]=uc+delta;
 	}
 	else
 	{

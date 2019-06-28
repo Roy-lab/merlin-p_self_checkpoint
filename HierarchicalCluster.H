@@ -15,6 +15,7 @@ class HierarchicalCluster
 	~HierarchicalCluster();
 	int setOutputDir(const char*);
 	int cluster(map<int,map<string,int>*>& modules,map<string,HierarchicalClusterNode*>& attribs,double);
+	int cluster_eff(map<int,map<string,int>*>& modules,map<string,HierarchicalClusterNode*>& attribs,double);
 	HierarchicalClusterNode* getRoot();
 	int setVariableManager(VariableManager* p);
 	private:
@@ -34,6 +35,7 @@ class HierarchicalCluster
 	int globalNodeID;
 	int globalPairID;
 	double** distvalues;
+	double** distvalues_pcc;
 	int** neighbors;
 	int* visited;
 	int treenodecnt;

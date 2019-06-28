@@ -33,7 +33,9 @@ class PotentialManager
 		int setLambda(double);
 		int estimateAllMeanCov(bool,INTDBLMAP&,map<int,INTDBLMAP*>&,INTINTMAP&,const char*,const char*,int leaveOutData=-1);
 		int estimateAllMeanCov(bool,INTDBLMAP&,map<int,INTDBLMAP*>&,INTINTMAP&);
+		int estimateAllMeanCov_Eff(bool,INTDBLMAP&,map<int,INTDBLMAP*>&,INTINTMAP&);
 		int estimateCovariance(bool,INTDBLMAP*,int,int);
+		int estimateCovariance_Eff(bool,int,int);
 		int estimateAllMeanCov_EM(map<int,EvidenceManager*>&,int,map<int,map<int,map<int,INTDBLMAP*>*>*>&);
 		int estimateAllMeanCov_EM(map<int,EvidenceManager*>&,int,map<int,map<int,map<int,INTDBLMAP*>*>*>&,int,INTINTMAP*);
 		int estimateNewCov(INTINTMAP& trainEvidSet, INTINTMAP* varSet,Potential*);
@@ -56,6 +58,7 @@ class PotentialManager
 		//We are going to store the set of potentials per factor. That is each 
 		//POTVECT object stores the set of potentials for a particular factor
 		int populatePotential(Potential*,bool random);
+		int populatePotential_Eff(Potential*,bool random);
 		
 		int populatePotential_EM(Potential*,int,int,map<int,EvidenceManager*>&,map<int,map<int,map<int,INTDBLMAP*>*>*>&,bool);
 		int estimatePotWeight(Potential* apot,int vId, int cid,double b, map<int,EvidenceManager*>& evSet,map<int,map<int,map<int,INTDBLMAP*>*>*>& gammas);
@@ -122,5 +125,8 @@ class PotentialManager
 		gsl_rng* randgen;
 		double lambda;
 		bool randomData;
+		Matrix* data;
+		Matrix* meanMat;
+		Matrix* covMat;
 };
 #endif

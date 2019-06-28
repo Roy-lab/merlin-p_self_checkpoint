@@ -25,6 +25,8 @@ using namespace std;
 #include "MotifManager.H"
 #include "BFGSWrapperData.H"
 #include "BFGSWrapper.H"
+#include "HierarchicalCluster.H"
+#include "HierarchicalClusterNode.H"
 #include "MetaLearner.H"
 
 #include "Framework.H"
@@ -67,7 +69,7 @@ Framework::init(int argc, char** argv)
 	opterr=1;
 	int oldoptind=optind;
  
-	while(optret=getopt(argc,argv,"o:k:d:v:l:p:r:c:h:f:q:a")!=-1)
+	while(optret=getopt(argc,argv,"o:k:d:v:l:p:r:c:h:f:q:a:e:")!=-1)
 	{
 		if(optret=='?')
 		{
@@ -204,6 +206,13 @@ Framework::init(int argc, char** argv)
 				metaLearner.setSpecificFold(atoi(optarg));
 				break;
 			}
+			case 'e':
+			{
+				int hcCluster=atoi(optarg);
+				metaLearner.setHierarchicalClusterVersion(hcCluster);
+				
+				break;
+			}
 			case '?':
 			{
 				/* getopt_long already printed an error message. */
@@ -292,7 +301,8 @@ main(int argc, char* argv[])
 			<< "-o outputdirectory" << endl
 			<< "-c clusterassignment (default random_partitioning) "<< endl
 			<< "-h hierarchical_clustering_threshold (default 0.6)"<< endl
-			<< "-f specificfold_torun (default is -1)" << endl ;
+			<< "-f specificfold_torun (default is -1)" << endl 
+			<< "-e hierarchicalClusterVersion [0 or 1] (default is 0)" << endl ;
 		return 0;
 	}
 	Framework fw;

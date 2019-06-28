@@ -41,7 +41,7 @@ MetaLearner::MetaLearner()
 	specificFold=-1;
 	holdoutEvMgr=NULL;
 	resumeEdges.clear();
-	convThreshold=1e-3;
+	hcVersion=0;
 }
 
 MetaLearner::~MetaLearner()
@@ -181,6 +181,14 @@ MetaLearner::setPriorGraph_All(const char* aFName)
 		priorgraphmap[gname] = priorGraph;
 	}
 	inFile.close();
+	return 0;
+}
+
+
+int 
+MetaLearner::setHierarchicalClusterVersion(int algoVersion)
+{
+	hcVersion=algoVersion;
 	return 0;
 }
 
@@ -902,8 +910,15 @@ MetaLearner::start_gradualMBIncrease(int f)
 					notConverged=false;
 				}
 				else
-				{
-					redefineModules_Global();
+				{	
+					if(hcVersion==1)
+					{
+						redefineModules_Global_Eff();
+					}
+					else
+					{
+						redefineModules_Global();
+					}
 				}
 				scorePremodule=currGlobalScore;
 				dumpAllGraphs(currK,f,iter);
@@ -1434,7 +1449,8 @@ MetaLearner::initEdgeSet(bool validation)
 			sFactor->potFunc=new Potential;
 			sFactor->potFunc->setAssocVariable(varSet[sFactor->fId],Potential::FACTOR);
 			sFactor->potFunc->potZeroInit();
-			potMgr->populatePotential(sFactor->potFunc,random);
+			//potMgr->populatePotential(sFactor->potFunc,random);
+			potMgr->populatePotential_Eff(sFactor->potFunc,random);
 			sFactor->potFunc->initMBCovMean();
 		}
 	}
@@ -2099,7 +2115,7 @@ MetaLearner::collectMoves(int currK,int rind)
 		{
 			move->pll[dIter->first]=dIter->second;
 		}
-		/*cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
+		cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
 		for(INTDBLMAP_ITER cvIter=bestConditionImprovement.begin();cvIter!=bestConditionImprovement.end();cvIter++)
 		{
 			cout << " "<<cvIter->first<<"=" << cvIter->second;
@@ -2109,11 +2125,11 @@ MetaLearner::collectMoves(int currK,int rind)
 		{
 			cout << " "<<cvIter->first<<"=" << cvIter->second;
 		}
-		for(map<string,double>::iterator kIter=knownRegulatorScore.begin();kIter!=knownRegulatorScore.end();kIter++)
+		/*for(map<string,double>::iterator kIter=knownRegulatorScore.begin();kIter!=knownRegulatorScore.end();kIter++)
 		{
 			cout <<" " << kIter->first<<"="<< kIter->second;
-		}
-		cout << endl; */
+		}*/
+		cout << endl; 
 		bestCondSpecPLL.clear();
 		bestConditionScore.clear();
 		move->setTargetVertex(v->getID());
@@ -2223,7 +2239,8 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 	PotentialManager* potMgr=potMgrSet[cid];
 	double newPLL_d=0;
 	*newdPot=dPots[cid];
-	potMgr->populatePotential(*newdPot,random);
+	//potMgr->populatePotential(*newdPot,random);
+	potMgr->populatePotential_Eff(*newdPot,random);
 	(*newdPot)->initMBCovMean();
 	for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
 	{
@@ -2464,7 +2481,8 @@ MetaLearner::getNewPLLScore_Condition_Tracetrick(int csetId, int vId, int uId, P
 	}
 	parentPot->potZeroInit();
 	PotentialManager* potMgr=potMgrSet.begin()->second;
-	potMgr->populatePotential(parentPot,false);
+	//potMgr->populatePotential(parentPot,false);
+	potMgr->populatePotential_Eff(parentPot,false);
 	//parentPot->initMBCovMean();
 	EvidenceManager* evMgr=evMgrSet.begin()->second;
 	INTINTMAP* tSet=&evMgr->getTrainingSet();
@@ -2911,7 +2929,8 @@ MetaLearner::populateGraphsFromFile(const char* aFName)
 				sFactor->potFunc->setAssocVariable(varSet[mIter->first],Potential::MARKOV_BNKT);
 			}
 			sFactor->potFunc->potZeroInit();
-			potMgr->populatePotential(sFactor->potFunc,random);
+			//potMgr->populatePotential(sFactor->potFunc,random);
+			potMgr->populatePotential_Eff(sFactor->potFunc,random);
 			sFactor->potFunc->initMBCovMean();
 		}
 	}
@@ -3329,7 +3348,131 @@ MetaLearner::redefineModules_Global()
 			node->size=1;
 		}
 	}
-	HierarchicalCluster hc;
+	HierarchicalCluster hclocal;
+	hclocal.setOutputDir(foldoutDirName);
+	hclocal.setVariableManager(varManager);
+	hclocal.cluster(newModules,nodeSet,clusterThreshold);
+	moduleGeneSet.clear();
+	geneModuleID.clear();
+	regulatorModuleOutdegree.clear();
+	for(map<int,map<string,int>*>::iterator mIter=moduleIndegree.begin();mIter!=moduleIndegree.end();mIter++)
+	{
+		mIter->second->clear();
+		delete mIter->second;
+	}
+	moduleIndegree.clear();
+	VSET& varSet=varManager->getVariableSet();
+	int largestModuleID=0;
+	char moduleFName[1024];
+	
+	string& dirname=outLocMap[evMgrSet.begin()->first];
+	sprintf(moduleFName,"%s/fold%d/modules.txt",dirname.c_str(),currFold);
+	ofstream modFile(moduleFName);
+	for(map<int,map<string,int>*>::iterator mIter=newModules.begin();mIter!=newModules.end();mIter++)
+	{
+		moduleGeneSet[mIter->first]=mIter->second;
+		map<string,int>* geneSet=mIter->second;
+		map<string,int>* indegree=new map<string,int>;
+		for(map<string,int>::iterator gIter=geneSet->begin();gIter!=geneSet->end();gIter++)
+		{
+			modFile << gIter->first <<"\t" << mIter->first << endl;
+			geneModuleID[gIter->first]=mIter->first;
+			int mID=varManager->getVarID(gIter->first.c_str());
+			SlimFactor* mFactor=aGraph->getFactorAt(mID);
+			INTINTMAP& mbvars1=mFactor->mergedMB;
+		
+			for(INTINTMAP_ITER nIter=mbvars1.begin();nIter!=mbvars1.end();nIter++)
+			{
+				Variable* var=varSet[nIter->first];
+				if(indegree->find(var->getName())==indegree->end())
+				{
+					(*indegree)[var->getName()]=1;
+				}
+				else
+				{
+					(*indegree)[var->getName()]=(*indegree)[var->getName()]+1;
+				}
+				if(regulatorModuleOutdegree.find(var->getName())==regulatorModuleOutdegree.end())
+				{
+					regulatorModuleOutdegree[var->getName()]=1;
+				}	
+				else
+				{
+					regulatorModuleOutdegree[var->getName()]=regulatorModuleOutdegree[var->getName()]+1;
+				}
+			}
+		}
+		moduleIndegree[mIter->first]=indegree;
+		largestModuleID=mIter->first;
+	}
+	modFile.close();
+	for(map<string,int>::iterator gIter=genesWithNoNeighbors.begin();gIter!=genesWithNoNeighbors.end();gIter++)
+	{
+		largestModuleID++;
+		map<string,int>* newmodule=new map<string,int>;
+		(*newmodule)[gIter->first]=0;
+		moduleGeneSet[largestModuleID]=newmodule;
+		geneModuleID[gIter->first]=largestModuleID;
+	}
+	genesWithNoNeighbors.clear();
+	return 0;
+}
+
+
+int
+MetaLearner::redefineModules_Global_Eff()
+{
+	FactorGraph* aGraph=fgGraphSet.begin()->second;
+	map<int,map<string,int>*> newModules;
+	map<string,int> genesWithNoNeighbors;
+	EvidenceManager* evMgr=evMgrSet.begin()->second;
+	INTINTMAP& tSet=evMgr->getTrainingSet();
+	for(map<int,map<string,int>*>::iterator gIter=moduleGeneSet.begin();gIter!=moduleGeneSet.end();gIter++)
+	{
+		map<string,int>* moduleMembers=gIter->second;
+		for(map<string,int>::iterator mIter=moduleMembers->begin();mIter!=moduleMembers->end();mIter++)
+		{
+			int mID=varManager->getVarID(mIter->first.c_str());
+			if(mID<0)
+			{
+				continue;
+			}
+			SlimFactor* mFactor=aGraph->getFactorAt(mID);
+			INTINTMAP& mbvars1=mFactor->mergedMB;
+			INTDBLMAP& regWts=mFactor->potFunc->getCondWeight();
+			if(mbvars1.size()==0)
+			{
+				genesWithNoNeighbors[mIter->first]=0;
+				continue;
+			}
+			HierarchicalClusterNode* node=NULL;
+			if(nodeSet.find(mIter->first)==nodeSet.end())
+			{
+				node=new HierarchicalClusterNode;
+				//Get the expression data
+				for(INTINTMAP_ITER eIter=tSet.begin();eIter!=tSet.end();eIter++)
+				{	
+					EMAP* evidMap=evMgr->getEvidenceAt(eIter->first);
+					Evidence* evid=(*evidMap)[mID];
+					double v=evid->getEvidVal();
+					node->expr.push_back(v);
+				}
+				node->nodeName.append(mIter->first);
+				nodeSet[mIter->first]=node;
+				node->size=1;
+			}
+			else
+			{
+				node=nodeSet[mIter->first];
+			}
+			//for(INTINTMAP_ITER bIter=mbvars1.begin();bIter!=mbvars1.end();bIter++)
+			for(INTDBLMAP_ITER bIter=regWts.begin();bIter!=regWts.end();bIter++)
+			{
+				node->attrib[bIter->first]=bIter->second;
+			}
+		}
+	}
+	//HierarchicalCluster hc;
 	hc.setOutputDir(foldoutDirName);
 	hc.setVariableManager(varManager);
 	hc.cluster(newModules,nodeSet,clusterThreshold);
@@ -3397,7 +3540,9 @@ MetaLearner::redefineModules_Global()
 	}
 	genesWithNoNeighbors.clear();
 	return 0;
+
 }
+
 
 int 
 MetaLearner::writeIterCnt(int currFold, int iter)

@@ -16,6 +16,8 @@ class EvidenceManager;
 class PotentialManager;
 class MetaMove;
 class Graph;
+class HierarchicalCluster;
+class HierarchicalClusterNode;
 class MetaLearner
 {
 	public:
@@ -60,6 +62,7 @@ class MetaLearner
 	//int setChIPGraph(const char*);
 	//int setBeta_ChIP(double bval);
 	int setPriorGraph_All(const char*);
+	int setHierarchicalClusterVersion(int);
 	private:
 	bool shouldLoad;
 	int writeIterCnt(int,int);
@@ -118,6 +121,7 @@ class MetaLearner
 	int setPriorGraph(const char* aFName, map<string,map<string,double>*>& priorGraph);
 	int redefineModules();
 	int redefineModules_Global();
+	int redefineModules_Global_Eff();
 	double getModuleContrib(string& tgtName, string& tfName);
 	double getModuleContribLogistic(string& tgtName, string& tfName);
 	int initPhysicalDegree();
@@ -186,5 +190,10 @@ class MetaLearner
 	int loadLastUpdate();
 	int writeLastUpdate();
 	int doTar();
+	//Trying to reuse the same hc objects and data
+	
+	map<string,HierarchicalClusterNode*> nodeSet;
+	HierarchicalCluster hc;
+	int hcVersion;
 };
 #endif

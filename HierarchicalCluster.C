@@ -21,6 +21,8 @@ double* sorteddist=NULL;
 HierarchicalCluster::HierarchicalCluster()
 {
 	root=NULL;
+	distvalues=NULL;
+	distvalues_pcc=NULL;
 }
 
 HierarchicalCluster::~HierarchicalCluster()
@@ -108,6 +110,80 @@ HierarchicalCluster::cluster(map<int,map<string,int>*>& modules,map<string,Hiera
 	return 0;
 }
 
+
+int 
+HierarchicalCluster::cluster_eff(map<int,map<string,int>*>& modules,map<string,HierarchicalClusterNode*>& attribs,double t)
+{
+	threshold=t;
+	map<int,HierarchicalClusterNode*> attribs_integer;
+	globalNodeID=0;
+	for(map<string,HierarchicalClusterNode*>::iterator nIter=attribs.begin();nIter!=attribs.end();nIter++)
+	{
+		attribs_integer[globalNodeID]=nIter->second;
+		nIter->second->id=globalNodeID;
+		globalNodeID++;
+	}
+	estimatePairwiseDist(attribs_integer);
+	for(map<string,HierarchicalClusterNode*>::iterator aIter=attribs.begin();aIter!=attribs.end();aIter++)
+	{
+		backup[aIter->first]=aIter->second;
+	}
+	
+	bool keepMerging=true;
+	
+	while(keepMerging && attribs_integer.size()>1)
+	{
+		struct timeval begintime;
+		struct timeval endtime;
+		gettimeofday(&begintime,NULL);
+		keepMerging=mergePairs_LazyDelete(attribs_integer);
+		gettimeofday(&endtime,NULL);
+		//cout << "Time elapsed " << endtime.tv_sec-begintime.tv_sec<< " seconds and " << endtime.tv_usec-begintime.tv_usec << " micro secs" << endl;
+	}
+	generateModules(attribs_integer,modules,backup);
+	calculatePercentVarianceExplained(modules,backup);
+	//calculateSilhouetteIndex(modules,backup);
+	/*for(map<string,HierarchicalClusterNode*>::iterator aIter=backup.begin();aIter!=backup.end();aIter++)
+	{
+		map<string,HierarchicalClusterNode*>::iterator cIter=attribs.find(aIter->first);
+		if(cIter!=attribs_integer.end())
+		{
+			attribs_integer.erase(cIter);
+		}
+		//Don't delete this.  This has the expression.. but we likely don't need it as we the correlations already pre-computed.
+		//delete aIter->second;
+	}
+	for(map<string,HierarchicalClusterNode*>::iterator aIter=attribs.begin();aIter!=attribs.end();aIter++)
+	{
+		delete aIter->second;
+	}*/
+	for(map<int,HierarchicalClusterNode*>::iterator aIter=attribs_integer.begin();aIter!=attribs_integer.end();aIter++)
+	{
+		//delete all nodes that have empty attributes as these are the internal nodes in the dendrogram
+		if(aIter->second->attrib.size()==0)
+		{
+			delete aIter->second;
+		}
+	}
+	attribs_integer.clear();
+	delete [] visited;
+	for(int i=0;i<treenodecnt;i++)
+	{
+		delete [] distvalues[i];
+	}
+	delete [] distvalues;
+	//attribs.clear();
+	backup.clear();
+	while(!myqueue.empty())
+	{
+		HierarchicalCluster::Pair* p=myqueue.top();
+		myqueue.pop();
+		delete p;
+	}
+	return 0;
+}
+
+
 int
 HierarchicalCluster::estimatePairwiseDist(map<int,HierarchicalClusterNode*>& currNodeSet)
 {
@@ -117,13 +193,27 @@ HierarchicalCluster::estimatePairwiseDist(map<int,HierarchicalClusterNode*>& cur
 	//The total number of nodes that can be there in a hierarchical cluster is 2n-1
 	treenodecnt=(currNodeSet.size()*2) - 1;
 	distvalues=new double*[treenodecnt];
+	bool initPCC=false;
+	if(distvalues_pcc==NULL)
+	{
+		distvalues_pcc=new double*[treenodecnt];
+		initPCC=true;
+	}
 	visited=new int[treenodecnt];
 	for(int i=0;i<treenodecnt;i++)
 	{
 		distvalues[i]=new double[treenodecnt];
+		if(initPCC)
+		{
+			distvalues_pcc[i]=new double[treenodecnt];
+		}
 		for (int j=0;j<treenodecnt;j++)
 		{
 			distvalues[i][j]=-1000;
+			if(initPCC)
+			{
+				distvalues_pcc[i][j]=-1000;
+			}
 		}
 	}
 	for(int i=0;i<treenodecnt;i++)
@@ -139,7 +229,16 @@ HierarchicalCluster::estimatePairwiseDist(map<int,HierarchicalClusterNode*>& cur
 			HierarchicalClusterNode* hcNode1=currNodeSet[i];
 			HierarchicalClusterNode* hcNode2=currNodeSet[j];
 			double rdist=0;
-			double ccdist=d.computeCC(hcNode1->expr,hcNode2->expr);
+			double ccdist=-1000;
+			if(distvalues_pcc[i][j]==-1000)
+			{
+				ccdist=d.computeCC(hcNode1->expr,hcNode2->expr);
+				distvalues_pcc[i][j]=ccdist;
+			}
+			else
+			{
+				ccdist=distvalues_pcc[i][j];
+			}
 			double sharedSign=0;
 			double den1=0;
 			double den2=0;
@@ -218,9 +317,9 @@ HierarchicalCluster::mergePairs_LazyDelete(map<int,HierarchicalClusterNode*>& cu
 	c12->right=c2;
 	c1->parent=c12;
 	c2->parent=c12;
-	c12->nodeName.append(c1->nodeName);
-	c12->nodeName.append("-");
-	c12->nodeName.append(c2->nodeName);
+	//c12->nodeName.append(c1->nodeName);
+	//c12->nodeName.append("-");
+	//c12->nodeName.append(c2->nodeName);
 	map<int,HierarchicalClusterNode*>::iterator hIter1=currNodeSet.find(c1->id);
 	map<int,HierarchicalClusterNode*>::iterator hIter2=currNodeSet.find(c2->id);
 	currNodeSet.erase(hIter1);

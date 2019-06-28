@@ -18,6 +18,7 @@ PotentialManager::PotentialManager()
 	randgen=gsl_rng_alloc(gsl_rng_default);
 	lambda=0;
 	randomData=false;
+	data=NULL;
 }
 
 PotentialManager::~PotentialManager()
@@ -125,7 +126,8 @@ PotentialManager::init(int f)
 	{
 		INTINTMAP& trainEvidSet=evMgr->getTrainingSet();
 		//estimateAllMeanCov(false,globalMean,globalCovar,trainEvidSet,mFName,sdFName);
-		estimateAllMeanCov(randomData,globalMean,globalCovar,trainEvidSet);
+		//estimateAllMeanCov(randomData,globalMean,globalCovar,trainEvidSet);
+		estimateAllMeanCov_Eff(randomData,globalMean,globalCovar,trainEvidSet);
 	}
 	ludecomp=gsl_matrix_alloc(MAXFACTORSIZE_ALLOC,MAXFACTORSIZE_ALLOC);
 	perm=gsl_permutation_alloc(MAXFACTORSIZE_ALLOC);
@@ -616,24 +618,74 @@ PotentialManager::estimateAllMeanCov(bool random, INTDBLMAP& gMean, map<int,INTD
 
 
 int
+PotentialManager::estimateAllMeanCov_Eff(bool random, INTDBLMAP& gMean, map<int,INTDBLMAP*>& gCovar,INTINTMAP& trainEvidSet)
+{
+	int evidCnt=trainEvidSet.size();
+	//First get the mean and then the variance
+	////data is the data matrix which will have the variable by sample information
+	EMAP* evidMap=evMgr->getEvidenceAt(trainEvidSet.begin()->first);
+	int varCnt=evidMap->size();
+	if(data==NULL)
+	{
+		data=new Matrix(varCnt,trainEvidSet.size());
+		meanMat=new Matrix(varCnt,1);
+		meanMat->setAllValues(0);
+		covMat=new Matrix(varCnt,varCnt);
+		covMat->setAllValues(-1);
+	}
+	for(INTINTMAP_ITER eIter=trainEvidSet.begin();eIter!=trainEvidSet.end();eIter++)
+	{
+		EMAP* evidMap=NULL;
+		if(random)
+		{
+			evidMap=evMgr->getRandomEvidenceAt(eIter->first);
+		}
+		else
+		{
+			evidMap=evMgr->getEvidenceAt(eIter->first);
+		}
+		//for(EMAP_ITER vIter=evidMap->begin();vIter!=evidMap->end(); vIter++)
+		for(int vId=0;vId<evidMap->size();vId++)
+		{
+			//int vId=vIter->first;
+			//Evidence* evid=vIter->second;
+			Evidence* evid=(*evidMap)[vId];
+			double val=evid->getEvidVal();
+			data->setValue(val,vId,eIter->first);
+		}
+	}
+	//Done copying. Now we can go over the rows of data and get the means
+	for(int i=0;i<varCnt;i++)
+	{
+		double s=0;
+		for(int j=0;j<data->getColCnt();j++)
+		{
+			double val=data->getValue(i,j);
+			s=s+val;
+		}
+		double sampleSize=(double) data->getColCnt();
+		meanMat->setValue(s/sampleSize,i,0);
+	}
+	return 0;
+
+}
+
+int
 PotentialManager::estimateCovariance(bool random,INTDBLMAP* vcov, int uId, int vId)
 {
-	INTINTMAP& trainEvidSet=evMgr->getTrainingSet();
-	int evidCnt=trainEvidSet.size();
-	double delta = (0.001)/((double)(evidCnt-1));
-	double uc,vc,uvc;
+	/*double uc,vc,uvc;
 	evMgr->estimateCovariance(uId,vId,uc,vc,uvc);
 	INTDBLMAP* ucov=globalCovar[uId];
 	if(uId==vId)
 	{
-		(*ucov)[uId]=uc+delta;
+		(*ucov)[uId]=uc;
 	}
 	else
 	{
 		(*ucov)[vId]=uvc;
 		(*vcov)[uId]=uvc;
-	}
-	/*
+	}*/
+	
 	INTINTMAP& trainEvidSet=evMgr->getTrainingSet();
 	int evidCnt=trainEvidSet.size();
 	INTDBLMAP* ucov=globalCovar[uId];
@@ -688,9 +740,39 @@ PotentialManager::estimateCovariance(bool random,INTDBLMAP* vcov, int uId, int v
 		(*ucov)[vId]=ssduv/((double)(evidCnt-1));
 		(*vcov)[uId]=ssduv/((double)(evidCnt-1));
 	}
-	*/
 	return 0;
 }
+
+
+int
+PotentialManager::estimateCovariance_Eff(bool random, int uId, int vId)
+{
+	double ssd=0;
+	for(int i=0;i<data->getColCnt();i++) 
+	{
+		double vval=data->getValue(vId,i);
+		double vmean=meanMat->getValue(vId,0);
+		double uval=data->getValue(uId,i);
+		double umean=meanMat->getValue(uId,0);
+		double diffprod=(vval-vmean)*(uval-umean);
+		ssd=ssd+diffprod;
+	}
+	//cout <<"Total covariance pairs estimated " << covPair << endl;
+	//Now estimate the variance
+	double var=0;
+	if(uId==vId)
+	{
+		var=(0.001+ssd)/((double)(data->getColCnt()-1));
+	}
+	else
+	{
+		var=ssd/((double)(data->getColCnt()-1));
+	}
+	covMat->setValue(var,uId,vId);
+	covMat->setValue(var,vId,uId);
+	return 0;
+}
+
 
 //Need to fill in the covariances which are empty
 int
@@ -1424,7 +1506,8 @@ PotentialManager::populatePotentialsSlimFactors(map<int,SlimFactor*>& factorSet,
 			}
 		}
 		aPotFunc->potZeroInit();
-		populatePotential(aPotFunc,false);
+		//populatePotential(aPotFunc,false);
+		populatePotential_Eff(aPotFunc,false);
 		aPotFunc->calculateJointEntropy();
 		sFactor->jointEntropy=aPotFunc->getJointEntropy();
 		if(sFactor->jointEntropy<0)
@@ -1654,6 +1737,43 @@ PotentialManager::populatePotential(Potential* aPot, bool random)
 	aPot->makeValidJPD(ludecomp,perm);
 	return 0;
 }
+
+
+int
+PotentialManager::populatePotential_Eff(Potential* aPot, bool random)
+{
+	VSET& potVars=aPot->getAssocVariables();
+	for(VSET_ITER vIter=potVars.begin();vIter!=potVars.end(); vIter++)
+	{
+		double mean=0;
+		double cov=0;
+		/*if(globalMean.find(vIter->first)==globalMean.end())
+		{
+			cerr <<"No var with id " << vIter->first << endl;
+			exit(-1);
+		}*/
+		mean=meanMat->getValue(vIter->first,0);
+		aPot->updateMean(vIter->first,mean);
+		for(VSET_ITER uIter=vIter;uIter!=potVars.end();uIter++)
+		{
+			double cval=covMat->getValue(vIter->first,uIter->first);
+			if(cval==-1)
+			{
+				estimateCovariance_Eff(random,uIter->first,vIter->first);
+				//cerr <<"No var " << uIter->first << " in covariance of " << vIter->first << endl;
+				//exit(-1);
+			}
+			cval=covMat->getValue(vIter->first,uIter->first);
+			aPot->updateCovariance(vIter->first,uIter->first,cval);
+			aPot->updateCovariance(uIter->first,vIter->first,cval);
+		}
+	}
+
+	//aPot->makeValidJPD();
+	aPot->makeValidJPD(ludecomp,perm);
+	return 0;
+}
+
 
 int
 PotentialManager::populatePotential_EM(Potential* apot,int vId, int cid, map<int,EvidenceManager*>& evSet,map<int,map<int,map<int,INTDBLMAP*>*>*>& gammas, bool newB)

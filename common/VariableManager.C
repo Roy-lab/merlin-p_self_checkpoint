@@ -21,12 +21,25 @@ Error::ErrorCode
 VariableManager::readVariables(const char* aFName)
 {
 	ifstream inFile(aFName);
-	char buffer[400000];
+	char* buffer=NULL;
+	int bufflen=0;
+	string buffstr;
 	int nodeCnt=0;
 
 	if(inFile.good())
 	{
-		inFile.getline(buffer,400000);
+		//inFile.getline(buffer,400000);
+		getline(inFile,buffstr);
+		if(buffstr.length()>=bufflen)
+		{
+			bufflen=buffstr.length()+1;
+			if(buffer!=NULL)
+			{
+				delete [] buffer;
+			}
+			buffer=new char[bufflen];
+		}
+		strcpy(buffer,buffstr.c_str());
 
 		if(strlen(buffer)<=0)
 		{

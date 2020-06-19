@@ -146,7 +146,9 @@ class MetaLearner
 	double penalty;
 	double convThreshold;
 	char restrictedFName[1024];
-	map<string,INTINTMAP*> edgeConditionMap;
+	//map<string,INTINTMAP*> edgeConditionMap;
+	bool ** addedEdges;
+	INTINTMAP* myConditionSet;
 	FactorGraph* fg;
 	vector<MetaMove*> moveSet;
 	map<string,double> edgeValue;
@@ -162,10 +164,12 @@ class MetaLearner
 	gsl_rng* rnd;
 	char outputDirName[1024];
 	map<int,INTINTMAP*> datasetInd;
-	map<string,double> edgePresenceProb;
+	//map<string,double> edgePresenceProb;
+	Matrix* edgePresenceProb;
 	map<int,double> varNeighborhoodPrior;
 	//These are the edges that got added
-	map<string,int> edgeUpdates;
+	//map<string,int> edgeUpdates;
+	Matrix* edgeUpdates;
 	double beta1;
 	double beta_motif;
 	double lambda;

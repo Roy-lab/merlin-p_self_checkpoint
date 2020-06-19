@@ -25,8 +25,6 @@ class FactorManager
 		int setVariableManager(VariableManager*);
 		int setEvidenceManager(EvidenceManager*);
 		int setPotentialManager(PotentialManager*);
-		int setBaseInstantiation();
-		int setBaseInstantiation_Variable();
 		int setMaxFactorSize(int);
 		int setMaxFactorSize_Approx(int);
 		int setRandMISdCnt(double);
@@ -43,8 +41,6 @@ class FactorManager
 		int allocateFactorSpace_Graph();
 
 		FactorGraph* createInitialFactorGraph();
-
-		int paramEstimation(const char*);
 
 		int generateSingletonFactors();
 		int generateCanonicalFactors();
@@ -94,16 +90,12 @@ class FactorManager
 		int removeDupFactors();
 
 		int generateClusters_Apriori(double,double,int,bool);
-		int learnMBStructure(double,double);
 		double getPseudoLikelihood();
 		double getPseudoLikelihood(FactorGraph*,bool);
 		double getMVGaussianLikelihood(FactorGraph*,bool);
 		double getLikelihood_ChainRule();
 		double getLikelihood_ChainRule(FactorGraph*);
-		double getLikelihood();
-		double getLikelihood(FactorGraph*);
 
-		double getLikelihood_MCMC(FactorGraph*);
 		double estimatePartitionFunction(FactorGraph*);
 		int randInitSample(INTINTMAP* sample,gsl_rng* r);
 		int getNextSample(FactorGraph* fg,INTINTMAP* currSample,INTINTMAP* nextSample,gsl_rng* r);

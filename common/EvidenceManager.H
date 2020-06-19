@@ -30,7 +30,6 @@ class EvidenceManager
 		//This associates the variable information with the variable id
 		int setVariableManager(VariableManager*);
 		//Read the evidence file
-		Error::ErrorCode loadEvidenceFromFile(const char*);
 		Error::ErrorCode loadEvidenceFromFile_Continuous(const char*);
 		int randomizeEvidence(gsl_rng*);
 		int getNumberOfEvidences();
@@ -38,14 +37,6 @@ class EvidenceManager
 		EMAP* getEvidenceAt(int);
 		EMAP* getRandomEvidenceAt(int);
 		int addEvidence(EMAP*);
-		//This is used during EM, updating missing/hidden values using 
-		//expected counts. eSetId corresponds to the data entry, vId is the
-		//variable whose evidence we are updating and evidData is the set
-		//of values and their evidence values (soft evidence)
-		int addToEvidence(int eSetId,int vId, INTDBLMAP& evidData);	
-		int dumpEvidenceSet(ostream&);
-		int dumpSummaryStat(ostream&);
-		int getMLSettings(ostream&);
 
 		int setFoldCnt(int);
 		int generateValidationSet(const char*,int vSetSize,gsl_rng* r);
@@ -61,7 +52,6 @@ class EvidenceManager
 		int estimateCovariance(int uId, int vId, double& ucov, double& vcov, double& uvcov);
 	private:
 		Matrix* dataMat;
-		int populateEvidence(Evidence**,const char*);
 		int populateRandIntegers(gsl_rng*, int*,int);
 		int populateRandIntegers(gsl_rng* r, int* randInds, INTINTMAP& populateFrom, int size);
 		EVIDENCE_SET evidenceSet;

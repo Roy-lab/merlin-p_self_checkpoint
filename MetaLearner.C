@@ -42,6 +42,10 @@ MetaLearner::MetaLearner()
 	holdoutEvMgr=NULL;
 	resumeEdges.clear();
 	hcVersion=0;
+
+	myConditionSet=NULL;
+	edgeUpdates=NULL;
+	edgePresenceProb=NULL;
 }
 
 MetaLearner::~MetaLearner()
@@ -1268,11 +1272,23 @@ double
 MetaLearner::getPriorChange()
 {
 	double priorContrib=0;
-	for(map<string,int>::iterator aIter=edgeUpdates.begin();aIter!=edgeUpdates.end();aIter++)
+	for (int i=0;i<edgePresenceProb->getRowCnt();i++)
 	{
-		double edgeContrib=edgePresenceProb[aIter->first];
-		priorContrib=priorContrib+(log(edgeContrib)-log(1-edgeContrib));
+		for (int j=0;j<edgePresenceProb->getColCnt();j++)
+		{
+			double isUpdated=edgeUpdates->getValue(i,j);
+			if (isUpdated != 0)
+			{
+				double edgeContrib=edgePresenceProb->getValue(i,j);
+				priorContrib=priorContrib+(log(edgeContrib)-log(1-edgeContrib));
+			}
+		}
 	}
+	//for(map<string,int>::iterator aIter=edgeUpdates.begin();aIter!=edgeUpdates.end();aIter++)
+	//{
+	//	double edgeContrib=edgePresenceProb[aIter->first];
+	//	priorContrib=priorContrib+(log(edgeContrib)-log(1-edgeContrib));
+	//}
 	return priorContrib;
 }
 
@@ -1281,13 +1297,24 @@ MetaLearner::getInitPrior()
 {
 	double graphPrior=0;
 	double edgePresence=1/(1+exp(-1*beta1));
-	for(map<string,double>::iterator aIter=edgePresenceProb.begin();aIter!=edgePresenceProb.end();aIter++)
+	//for(map<string,double>::iterator aIter=edgePresenceProb.begin();aIter!=edgePresenceProb.end();aIter++)
+	//{
+	for (int i=0;i<edgePresenceProb->getRowCnt();i++)
 	{
-		//graphPrior=graphPrior+log(1-edgePresence);
-		graphPrior=graphPrior+log(1-aIter->second);
-		if(isinf(graphPrior)|| isnan(graphPrior))
+		for (int j=0;j<edgePresenceProb->getColCnt();j++)
 		{
-			cout <<"Graph prior is "<< graphPrior << " after " << aIter->first << " for " << aIter->second << endl;
+			//graphPrior=graphPrior+log(1-edgePresence);
+			double val = edgePresenceProb->getValue(i,j);
+			if (val!=0)
+			{
+				//graphPrior=graphPrior+log(1-aIter->second);
+				graphPrior=graphPrior+log(1-val);
+				if(isinf(graphPrior)|| isnan(graphPrior))
+				{
+					//cout <<"Graph prior is "<< graphPrior << " after " << aIter->first << " for " << aIter->second << endl;
+					cout <<"Graph prior is "<< graphPrior << " after " << i << "," << j << " for " << val << endl;
+				}
+			}
 		}
 	}
 	return graphPrior;
@@ -1341,12 +1368,12 @@ MetaLearner::clearFoldSpecData()
 		delete fIter->second;
 	}
 	fgGraphSet.clear();
-	for(map<string,INTINTMAP*>::iterator eIter=edgeConditionMap.begin();eIter!=edgeConditionMap.end();eIter++)
-	{
-		eIter->second->clear();
-		delete eIter->second;
-	}
-	edgeConditionMap.clear();
+	//for(map<string,INTINTMAP*>::iterator eIter=edgeConditionMap.begin();eIter!=edgeConditionMap.end();eIter++)
+	//{
+	//	eIter->second->clear();
+	//	delete eIter->second;
+	//}
+	//edgeConditionMap.clear();
 
 	for(map<int,INTDBLMAP*>::iterator plIter=currPLLMap.begin();plIter!=currPLLMap.end();plIter++)
 	{
@@ -1354,7 +1381,9 @@ MetaLearner::clearFoldSpecData()
 		delete plIter->second;
 	}
 	currPLLMap.clear();
-	edgeUpdates.clear();
+	//edgeUpdates.clear();
+	delete edgeUpdates;
+	edgeUpdates=NULL;
 	return 0;
 }
 
@@ -1377,6 +1406,19 @@ MetaLearner::initEdgeSet(bool validation)
 
 	map<string,int> testedEdges;
 	VSET& varSet=varManager->getVariableSet();
+	addedEdges=new bool*[varSet.size()];
+	if (edgePresenceProb==NULL)
+	{
+		edgePresenceProb=new Matrix(varSet.size(),varSet.size());
+	}
+	for (int i=0;i<varSet.size();i++)
+	{
+		addedEdges[i]=new bool[varSet.size()];
+		for (int j=0;j<varSet.size();j++)
+		{
+			addedEdges[i][j]=false;
+		}
+	}
 	for(VSET_ITER uIter=varSet.begin();uIter!=varSet.end();uIter++)
 	{
 		Variable* u=varSet[uIter->first];
@@ -1405,12 +1447,12 @@ MetaLearner::initEdgeSet(bool validation)
 			{
 				cout <<"Stop here" << endl;
 			}
-			INTINTMAP* conditionSet=new INTINTMAP;
-			edgeConditionMap[edgeKey]=conditionSet;
-			for(map<int,INTINTMAP*>::iterator cIter=condsetMap.begin();cIter!=condsetMap.end();cIter++)
-			{
-				(*conditionSet)[cIter->first]=0;
-			}
+			//INTINTMAP* conditionSet=new INTINTMAP;
+			//edgeConditionMap[edgeKey]=conditionSet;
+			//for(map<int,INTINTMAP*>::iterator cIter=condsetMap.begin();cIter!=condsetMap.end();cIter++)
+			//{
+			//	(*conditionSet)[cIter->first]=0;
+			//}
 			double initPrior=getEdgePrior(uIter->first,vIter->first);
 			initPrior=1/(1+exp(-1*initPrior));
 			if(initPrior<1e-6)
@@ -1421,7 +1463,8 @@ MetaLearner::initEdgeSet(bool validation)
 			{
 				initPrior=1-1e-6;
 			}
-			edgePresenceProb[edgeKey]=initPrior;
+			//edgePresenceProb[edgeKey]=initPrior;
+			edgePresenceProb->setValue(initPrior,u->getID(),v->getID());
 			if(varNeighborhoodPrior.find(vIter->first)==varNeighborhoodPrior.end())
 			{
 				varNeighborhoodPrior[vIter->first]=log(1-initPrior);
@@ -1436,7 +1479,7 @@ MetaLearner::initEdgeSet(bool validation)
 	int n=varSet.size();
 	int r=restrictedVarList.size();
 	int expEdgeCnt=((r*(r-1))/2) + (r*(n-r)) ;
-	cout <<"Inited " << edgeConditionMap.size() << " edges. Expected " << expEdgeCnt << endl;
+	//cout <<"Inited " << edgeConditionMap.size() << " edges. Expected " << expEdgeCnt << endl;
 	testedEdges.clear();	
 	for(map<int,FactorGraph*>::iterator gIter=fgGraphSet.begin();gIter!=fgGraphSet.end();gIter++)
 	{
@@ -1461,6 +1504,14 @@ int
 MetaLearner::initCondsetMap_Nopool()
 {
 	int ind=0;
+	if (myConditionSet != NULL)
+	{
+		myConditionSet->clear();
+		delete myConditionSet;
+		myConditionSet=NULL;
+	}
+	myConditionSet=new INTINTMAP;
+	myConditionSet->clear();
 	for(map<int,EvidenceManager*>::iterator eIter=evMgrSet.begin();eIter!=evMgrSet.end();eIter++)
 	{
 		INTINTMAP* cset=new INTINTMAP;
@@ -1478,6 +1529,9 @@ MetaLearner::initCondsetMap_Nopool()
 		}
 		int currind=(int)pow(2.0,ind);
 		condsetMap[currind]=cset;
+		//Ali:
+		//I am adding this instead of initializing edgeConditionMap
+		(*myConditionSet)[currind] = 0;
 		string condKey;
 		genCondSetKey(*cset,condKey);
 		condsetKeyIDMap[condKey]=currind;
@@ -1837,12 +1891,13 @@ MetaLearner::collectMoves(int currK)
 			}
 			testedEdges[edgeKey]=0;
 			//Generate next condition assignments
-			if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
-			{
-				cout <<"No edge " << edgeKey.c_str() << " u " << u->getID() << " v " << v->getID()<< endl;
-				exit(0);
-			}
-			INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+			//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
+			//{
+			//	cout <<"No edge " << edgeKey.c_str() << " u " << u->getID() << " v " << v->getID()<< endl;
+			//	exit(0);
+			//}
+			//INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+			INTINTMAP* conditionSet=myConditionSet; // edgeConditionMap[edgeKey];
 			map<int,double> conditionImprovement;
 			map<int,double> conditionScore;
 			for(INTINTMAP_ITER cIter=conditionSet->begin();cIter!=conditionSet->end();cIter++)
@@ -1852,7 +1907,8 @@ MetaLearner::collectMoves(int currK)
 				Potential* aPot=NULL;
 				INTDBLMAP pll;
 				INTINTMAP* cset=getConditionSet(cIter->first);
-				if(cIter->second==1)
+				if (addedEdges[u->getID()][v->getID()])
+				//if(cIter->second==1)
 				{
 					pll.clear();
 					continue;
@@ -1920,7 +1976,7 @@ MetaLearner::collectMoves(int currK)
 		{
 			move->pll[dIter->first]=dIter->second;
 		}
-		cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
+		/*cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
 		for(INTDBLMAP_ITER cvIter=bestConditionImprovement.begin();cvIter!=bestConditionImprovement.end();cvIter++)
 		{
 			cout << " "<<cvIter->first<<"=" << cvIter->second;
@@ -1929,12 +1985,12 @@ MetaLearner::collectMoves(int currK)
 		for(INTDBLMAP_ITER cvIter=bestConditionScore.begin();cvIter!=bestConditionScore.end();cvIter++)
 		{
 			cout << " "<<cvIter->first<<"=" << cvIter->second;
-		}
+		}*/
 		/*for(map<string,double>::iterator kIter=knownRegulatorScore.begin();kIter!=knownRegulatorScore.end();kIter++)
 		{
 			cout <<" " << kIter->first<<"="<< kIter->second;
 		}*/
-		cout << endl;
+		//cout << endl;
 		bestCondSpecPLL.clear();
 		bestConditionScore.clear();
 		move->setTargetVertex(v->getID());
@@ -2026,12 +2082,13 @@ MetaLearner::collectMoves(int currK,int rind)
 			}
 			testedEdges[edgeKey]=0;
 			//Generate next condition assignments
-			if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
-			{
-				cout <<"No edge " << edgeKey.c_str() << " u " << u->getID() << " v " << v->getID()<< endl;
-				exit(0);
-			}
-			INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+			//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
+			//{
+			//	cout <<"No edge " << edgeKey.c_str() << " u " << u->getID() << " v " << v->getID()<< endl;
+			//	exit(0);
+			//}
+			//INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+			INTINTMAP* conditionSet=myConditionSet; //edgeConditionMap[edgeKey];
 			map<int,double> conditionImprovement;
 			map<int,double> conditionScore;
 			for(INTINTMAP_ITER cIter=conditionSet->begin();cIter!=conditionSet->end();cIter++)
@@ -2041,7 +2098,8 @@ MetaLearner::collectMoves(int currK,int rind)
 				Potential* aPot=NULL;
 				INTDBLMAP pll;
 				INTINTMAP* cset=getConditionSet(cIter->first);
-				if(cIter->second==1)
+				if (addedEdges[u->getID()][v->getID()])
+				//if(cIter->second==1)
 				{
 					pll.clear();
 					continue;
@@ -2261,11 +2319,11 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 		INTDBLMAP* plls=currPLLMap[keyid];
 		double oldPLL_d=(*plls)[v->getID()];
 		double dImpr=newPLL_d-oldPLL_d;
-		if(edgePresenceProb.find(edgeKey)==edgePresenceProb.end())
-		{
-			cout <<"No edge prior for " << edgeKey.c_str() << endl;
-			exit(0);
-		}
+		//if(edgePresenceProb.find(edgeKey)==edgePresenceProb.end())
+		//{
+		//	cout <<"No edge prior for " << edgeKey.c_str() << endl;
+		//	exit(0);
+		//}
 	//	double priorImpr=log(edgeProb)-log(1-edgeProb);
 		//dImpr=dImpr+priorImpr;
 		
@@ -2610,12 +2668,13 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		cout <<"Stop here" << endl;
 	}
 
-	if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
-	{
-		cout <<"Edge " << edgeKey << " not found " << endl;
-		return -1;
-	}
-	INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+	//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
+	//{
+	//	cout <<"Edge " << edgeKey << " not found " << endl;
+	//	return -1;
+	//}
+	//INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
+	INTINTMAP* conditionSet=myConditionSet; //edgeConditionMap[edgeKey];
 	int csetind=move->getConditionSetInd();
 	if(affectedVars.find(1)==affectedVars.end())
 	{
@@ -2644,7 +2703,8 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		}
 		dFactor->mergedMB[move->getSrcVertex()]=0;
 		dFactor->mbScore=move->getTargetMBScore();
-		(*conditionSet)[cIter->first]=1;
+		//(*conditionSet)[cIter->first]=1; // do I need this?
+		addedEdges[u->getID()][v->getID()]=true;
 		delete dFactor->potFunc;
 		dFactor->potFunc=move->getDestPot();
 		dFactor->updatePartialMeans(dFactor->potFunc->getAllPartialMeans());
@@ -2682,8 +2742,14 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		regulatorModuleOutdegree[u->getName()]=regulatorModuleOutdegree[u->getName()]+1;
 	}
 	//cout << "Made move for " << edgeKey.c_str() << " in condition " << csetind << endl;
-	edgeUpdates[edgeKey]=1;
-	(*conditionSet)[csetind]=1;
+	if (edgeUpdates==NULL)
+	{
+		edgeUpdates=new Matrix(varSet.size(),varSet.size());
+	}
+	//edgeUpdates[edgeKey]=1;
+	edgeUpdates->setValue(1,u->getID(),v->getID());
+	//(*conditionSet)[csetind]=1; //do I need this?
+	addedEdges[u->getID()][v->getID()]=true;
 	int curriter=0;
 	if(variableStatus.find(v->getName())==variableStatus.end())
 	{

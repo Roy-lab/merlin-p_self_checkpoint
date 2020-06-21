@@ -44,7 +44,7 @@ MetaLearner::MetaLearner()
 	hcVersion=0;
 
 	myConditionSet=NULL;
-	edgeUpdates=NULL;
+	//edgeUpdates=NULL;
 	edgePresenceProb=NULL;
 }
 
@@ -1272,7 +1272,24 @@ double
 MetaLearner::getPriorChange()
 {
 	double priorContrib=0;
-	for (int i=0;i<edgePresenceProb->getRowCnt();i++)
+	for(map<int,FactorGraph*>::iterator gIter=fgGraphSet.begin();gIter!=fgGraphSet.end();gIter++)
+	{
+		FactorGraph* fg=gIter->second;
+		map<int,SlimFactor*>& factorSet=fg->getAllFactors();
+		for(map<int,SlimFactor*>::iterator vIter=factorSet.begin();vIter!=factorSet.end();vIter++)
+		{
+			SlimFactor* sFactor=vIter->second;
+			int j=vIter->first;
+			INTINTMAP& mb=sFactor->mergedMB;
+			for(INTINTMAP_ITER bIter=mb.begin();bIter!=mb.end();bIter++)
+			{
+				int i=bIter->first;
+				double edgeContrib=edgePresenceProb->getValue(i,j);
+				priorContrib=priorContrib+(log(edgeContrib)-log(1-edgeContrib));
+			}
+		}
+	}
+	/*for (int i=0;i<edgePresenceProb->getRowCnt();i++)
 	{
 		for (int j=0;j<edgePresenceProb->getColCnt();j++)
 		{
@@ -1283,7 +1300,7 @@ MetaLearner::getPriorChange()
 				priorContrib=priorContrib+(log(edgeContrib)-log(1-edgeContrib));
 			}
 		}
-	}
+	}*/
 	//for(map<string,int>::iterator aIter=edgeUpdates.begin();aIter!=edgeUpdates.end();aIter++)
 	//{
 	//	double edgeContrib=edgePresenceProb[aIter->first];
@@ -1382,8 +1399,8 @@ MetaLearner::clearFoldSpecData()
 	}
 	currPLLMap.clear();
 	//edgeUpdates.clear();
-	delete edgeUpdates;
-	edgeUpdates=NULL;
+	//delete edgeUpdates;
+	//edgeUpdates=NULL;
 	return 0;
 }
 
@@ -1406,19 +1423,19 @@ MetaLearner::initEdgeSet(bool validation)
 
 	map<string,int> testedEdges;
 	VSET& varSet=varManager->getVariableSet();
-	addedEdges=new bool*[varSet.size()];
+	//addedEdges=new bool*[varSet.size()];
 	if (edgePresenceProb==NULL)
 	{
 		edgePresenceProb=new Matrix(varSet.size(),varSet.size());
 	}
-	for (int i=0;i<varSet.size();i++)
+	/*for (int i=0;i<varSet.size();i++)
 	{
 		addedEdges[i]=new bool[varSet.size()];
 		for (int j=0;j<varSet.size();j++)
 		{
 			addedEdges[i][j]=false;
 		}
-	}
+	}*/
 	for(VSET_ITER uIter=varSet.begin();uIter!=varSet.end();uIter++)
 	{
 		Variable* u=varSet[uIter->first];
@@ -1552,6 +1569,7 @@ MetaLearner::getConditionSet(int cind)
 	return condsetMap[cind];
 }
 
+/////We never use this fucnction
 int
 MetaLearner::getPredictionError_Holdout(int foldid)
 {
@@ -1663,6 +1681,7 @@ MetaLearner::getPredictionError_Holdout(int foldid)
 			EMAP* evidMap=holdoutEvMgr->getEvidenceAt(i);
 			Evidence* evid=(*evidMap)[vId];
 			pFile <<"\t" <<evid->getEvidVal();
+			//pFile <<"\t" <<evid->contValue;
 		}
 		pFile <<"\t" << regulatorCnt;
 		for(int i=0;i<totalEvid;i++)
@@ -1775,6 +1794,7 @@ MetaLearner::getPredictionError_CrossValid(int foldid)
 				EMAP* evidMap=evMgr->getEvidenceAt(dIter->first);
 				Evidence* evid=(*evidMap)[vId];
 				double trueval=evid->getEvidVal();
+				//double trueval=evid->contValue;
 				truemean=truemean+trueval;
 				truevect.push_back(trueval);
 			}
@@ -1792,6 +1812,7 @@ MetaLearner::getPredictionError_CrossValid(int foldid)
 				double predval=sPot->predictSample(evidMap);
 				Evidence* evid=(*evidMap)[vId];
 				double trueval=evid->getEvidVal();
+				//double trueval=evid->contValue;
 				totalvar=totalvar+((trueval-truemean)*(trueval-truemean));
 				//also called residuals
 				error=error+((predval-trueval)*(predval-trueval));
@@ -1907,8 +1928,9 @@ MetaLearner::collectMoves(int currK)
 				Potential* aPot=NULL;
 				INTDBLMAP pll;
 				INTINTMAP* cset=getConditionSet(cIter->first);
-				if (addedEdges[u->getID()][v->getID()])
+				//if (addedEdges[u->getID()][v->getID()])
 				//if(cIter->second==1)
+				if(doesEdgeExist(regID,vIter->first,cIter->first))
 				{
 					pll.clear();
 					continue;
@@ -2098,8 +2120,9 @@ MetaLearner::collectMoves(int currK,int rind)
 				Potential* aPot=NULL;
 				INTDBLMAP pll;
 				INTINTMAP* cset=getConditionSet(cIter->first);
-				if (addedEdges[u->getID()][v->getID()])
+				//if (addedEdges[u->getID()][v->getID()])
 				//if(cIter->second==1)
+				if(doesEdgeExist(regID,vIter->first,cIter->first))
 				{
 					pll.clear();
 					continue;
@@ -2244,6 +2267,18 @@ MetaLearner::getModuleWideScoreImprovement(int cid,INTINTMAP& conditionSet,Varia
 	return score;
 }
 
+bool 
+MetaLearner::doesEdgeExist(int uID, int vId, int csetid)
+{
+	bool edgePresent=false;
+	FactorGraph* fg=fgGraphSet[csetid];
+	SlimFactor* dFactor=fg->getFactorAt(vId);
+	if(dFactor->mergedMB.find(uID)!=dFactor->mergedMB.end())
+	{
+		edgePresent=true;
+	}
+	return edgePresent;
+}
 
 int
 MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, string& edgeKey, double& mbScore, double& scoreImprovement, Potential** newdPot)
@@ -2704,7 +2739,7 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		dFactor->mergedMB[move->getSrcVertex()]=0;
 		dFactor->mbScore=move->getTargetMBScore();
 		//(*conditionSet)[cIter->first]=1; // do I need this?
-		addedEdges[u->getID()][v->getID()]=true;
+		//addedEdges[u->getID()][v->getID()]=true;
 		delete dFactor->potFunc;
 		dFactor->potFunc=move->getDestPot();
 		dFactor->updatePartialMeans(dFactor->potFunc->getAllPartialMeans());
@@ -2742,14 +2777,14 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		regulatorModuleOutdegree[u->getName()]=regulatorModuleOutdegree[u->getName()]+1;
 	}
 	//cout << "Made move for " << edgeKey.c_str() << " in condition " << csetind << endl;
-	if (edgeUpdates==NULL)
+	/*if (edgeUpdates==NULL)
 	{
 		edgeUpdates=new Matrix(varSet.size(),varSet.size());
-	}
+	}*/
 	//edgeUpdates[edgeKey]=1;
-	edgeUpdates->setValue(1,u->getID(),v->getID());
+	////edgeUpdates->setValue(1,u->getID(),v->getID());
 	//(*conditionSet)[csetind]=1; //do I need this?
-	addedEdges[u->getID()][v->getID()]=true;
+	//addedEdges[u->getID()][v->getID()]=true;
 	int curriter=0;
 	if(variableStatus.find(v->getName())==variableStatus.end())
 	{
@@ -3407,6 +3442,7 @@ MetaLearner::redefineModules_Global()
 				EMAP* evidMap=evMgr->getEvidenceAt(eIter->first);
 				Evidence* evid=(*evidMap)[mID];
 				double v=evid->getEvidVal();
+				//double v=evid->contValue;
 				node->expr.push_back(v);
 			}
 			node->nodeName.append(mIter->first);
@@ -3521,6 +3557,7 @@ MetaLearner::redefineModules_Global_Eff()
 					EMAP* evidMap=evMgr->getEvidenceAt(eIter->first);
 					Evidence* evid=(*evidMap)[mID];
 					double v=evid->getEvidVal();
+					//double v=evid->contValue;
 					node->expr.push_back(v);
 				}
 				node->nodeName.append(mIter->first);

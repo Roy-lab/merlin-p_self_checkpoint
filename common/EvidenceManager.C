@@ -95,7 +95,7 @@ EvidenceManager::loadEvidenceFromFile_Continuous(const char* inFName)
 	}
 
 	inFile.close();
-	updateDataMat();
+	//updateDataMat();
 
 	cout <<"Read " << evidenceSet.size() << " different datapoints " << endl;
 

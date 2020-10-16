@@ -870,7 +870,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 						lastiter=variableStatus[v->getName()];
 						if((iter-lastiter)>=5)
 						{
-							cout <<"Skipping " << v->getName() << endl;
+					//		cout <<"Skipping " << v->getName() << endl;
 							subiter++;
 							continue;	
 						}
@@ -884,6 +884,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 					struct timeval endtime_v;
 					struct timezone begintimezone_v;
 					struct timezone endtimezone_v;
+					gettimeofday(&begintime_v,&begintimezone_v);
 					collectMoves(currK,vID);
 					if(moveSet.size()==0)
 					{
@@ -903,18 +904,19 @@ MetaLearner::start_gradualMBIncrease(int f)
 					showid++;
 					attemptedMoves++;
 					gettimeofday(&endtime_v,&endtimezone_v);
-					//printf("Time elapsed for one var %uj secs %d microsec\n",(unsigned int)(endtime_v.tv_sec-begintime_v.tv_sec),(unsigned int)(endtime_v.tv_usec-begintime_v.tv_usec));
+					printf("Time elapsed for one var %d secs %d microsec\n",endtime_v.tv_sec-begintime_v.tv_sec,endtime_v.tv_usec-begintime_v.tv_usec);
 				}
 				gettimeofday(&endtime,&endtimezone);
 				double newScore=getPLLScore();
 				currGlobalScore=newScore;
-				//printf("Time elapsed for all vars %d mins %d secs %d microsec\n", (unsigned int)(endtimezone.tz_minuteswest-begintimezone.tz_minuteswest), (unsigned int)(endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec));
+				printf("Time elapsed for all vars %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
 				if((currGlobalScore-scorePremodule)<=convThreshold)
 				{
 					notConverged=false;
 				}
 				else
 				{	
+					gettimeofday(&begintime,&begintimezone);
 					if(hcVersion==1)
 					{
 						redefineModules_Global_Eff();
@@ -923,6 +925,8 @@ MetaLearner::start_gradualMBIncrease(int f)
 					{
 						redefineModules_Global();
 					}
+					gettimeofday(&endtime,&endtimezone);
+					printf("Time elapsed for module inference %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
 				}
 				scorePremodule=currGlobalScore;
 				dumpAllGraphs(currK,f,iter);
@@ -2035,7 +2039,7 @@ MetaLearner::collectMoves(int currK,int rind)
 		delete moveSet[i];
 	}
 	moveSet.clear();
-	map<string,int> testedEdges;
+	//map<string,int> testedEdges;
 	int vID=idVidMap[rind];
 	VSET_ITER vIter=varSet.find(vID);
 	if(vIter==varSet.end())
@@ -2090,7 +2094,7 @@ MetaLearner::collectMoves(int currK,int rind)
 			edgeKey.append(v->getName().c_str());
 			//if(strcmp(edgeKey.c_str(),"YML076C\tYPR139C")==0 || strcmp(edgeKey.c_str(),"YER068W\tYPR161C")==0)
 			//if(strcmp(edgeKey.c_str(),"YNL236W\tYPL188W")==0 || strcmp(edgeKey.c_str(),"YER068W\tYPR161C")==0)
-			if(strcmp(edgeKey.c_str(),"YLR223C\tYHR108W")==0 || strcmp(edgeKey.c_str(),"YMR182C\tYHR108W")==0)
+			/*if(strcmp(edgeKey.c_str(),"YLR223C\tYHR108W")==0 || strcmp(edgeKey.c_str(),"YMR182C\tYHR108W")==0)
 			{
 				cout <<"Stop here" << endl;
 			}
@@ -2102,7 +2106,7 @@ MetaLearner::collectMoves(int currK,int rind)
 			{
 				continue;
 			}
-			testedEdges[edgeKey]=0;
+			testedEdges[edgeKey]=0;*/
 			//Generate next condition assignments
 			//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
 			//{
@@ -2185,7 +2189,7 @@ MetaLearner::collectMoves(int currK,int rind)
 		//At this stage we have the best condition set for the pair {u,bestv}.
 		if((bestu==NULL) || (bestScoreImprovement<=0))
 		{
-			testedEdges.clear();
+		//	testedEdges.clear();
 			return 0;
 		//	continue;
 		}
@@ -2219,7 +2223,7 @@ MetaLearner::collectMoves(int currK,int rind)
 		move->setDestPot(bestPot);
 		moveSet.push_back(move);
 	//}
-	testedEdges.clear();
+	//testedEdges.clear();
 	return 0;
 }
 double
@@ -2291,13 +2295,22 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 	double currPrior=varNeighborhoodPrior[v->getID()];
 	double plus=0;
 	double minus=0;
+	struct timeval begintime;
+	struct timeval endtime;
+	struct timeval begintime2;
+	struct timeval endtime2;
+	struct timezone begintimezone;
+	struct timezone endtimezone;
+	struct timezone begintimezone2;
+	struct timezone endtimezone2;
+	//gettimeofday(&begintime2,&begintimezone2);
 	for(INTINTMAP_ITER cIter=conditionSet.begin();cIter!=conditionSet.end();cIter++)
 	{
 		PotentialManager* potMgr=potMgrSet[cIter->first];
 		FactorGraph* fg=fgGraphSet[cIter->first];
 		SlimFactor* dFactor=fg->getFactorAt(v->getID());
 		//Pretend as if we were already adding dFactor into sFactor's MB
-		if(cIter->second==1)
+		/*if(cIter->second==1)
 		{
 			if(dFactor->mergedMB.find(u->getID())!=dFactor->mergedMB.end())
 			{
@@ -2305,7 +2318,8 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 			}
 			dPotDels[cIter->first]=delFromD;
 			dFactor->mergedMB[u->getID()]=0;
-		}
+		}*/
+		//gettimeofday(&begintime,&begintimezone);
 		Potential *dPot=new Potential;
 		dPot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
 		for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
@@ -2320,12 +2334,30 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 			minus=minus+log(1-edgeProbOld);
 			plus=plus+log(edgeProb);
 		}
+		
+		Variable* aVar=varSet[u->getID()];
+		dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+		double eprior=getEdgePrior(u->getID(),v->getID());
+		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		minus=minus+log(1-edgeProbOld);
+		plus=plus+log(edgeProb);
+		
 		dPots[cIter->first]=dPot;
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for adding variables to potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+
+		//gettimeofday(&begintime,&begintimezone);
 		dPot->potZeroInit();
-		dPot->setCondBias(dFactor->potFunc->getCondBias());
-		dPot->setCondVariance(dFactor->potFunc->getCondVariance());
-		dPot->setCondWeight(dFactor->potFunc->getCondWeight());
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for potzerotinit " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+		//dPot->setCondBias(dFactor->potFunc->getCondBias());
+		//dPot->setCondVariance(dFactor->potFunc->getCondVariance());
+		//dPot->setCondWeight(dFactor->potFunc->getCondWeight());
 	}
+	//gettimeofday(&endtime2,&endtimezone2);
+	//cout <<"Time for all init of vars " <<endtime2.tv_usec-begintime2.tv_usec << " microsecs " << endtime2.tv_sec-begintime2.tv_sec << " secs" << endl;
 	currPrior=currPrior+plus-minus;
 	string condKey;
 	genCondSetKey(conditionSet,condKey);
@@ -2333,8 +2365,11 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 	double newPLL_d=0;
 	*newdPot=dPots[cid];
 	//potMgr->populatePotential(*newdPot,random);
+	//gettimeofday(&begintime,&begintimezone);
 	potMgr->populatePotential_Eff(*newdPot,random);
 	(*newdPot)->initMBCovMean();
+	//gettimeofday(&endtime,&endtimezone);
+	//cout <<"Time for updating potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
 	for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
 	{
 		Potential* dPot=pIter->second;
@@ -2346,6 +2381,7 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 	}
 	if(scoreImprovement!=-1)
 	{
+		//gettimeofday(&begintime,&begintimezone);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),*newdPot);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),u->getID(),*newdPot);
 		newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
@@ -2386,8 +2422,10 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 			}
 			dPots.clear();
 		}
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for getting the score " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl <<endl;
 	}
-	for(map<int,bool>::iterator bIter=dPotDels.begin();bIter!=dPotDels.end();bIter++)
+	/*for(map<int,bool>::iterator bIter=dPotDels.begin();bIter!=dPotDels.end();bIter++)
 	{
 		if(bIter->second==false)
 		{
@@ -2398,7 +2436,7 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 		SlimFactor* dFactor=fg->getFactorAt(v->getID());
 		INTINTMAP_ITER dIter=dFactor->mergedMB.find(u->getID());
 		dFactor->mergedMB.erase(dIter);
-	}
+	}*/
 	if(scoreImprovement<0)
 	{
 		for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
@@ -3268,10 +3306,10 @@ MetaLearner::getModuleContrib(string& tgtName, string& tfName)
 double
 MetaLearner::getModuleContribLogistic(string& tgtName, string& tfName)
 {
-	if((strcmp(tgtName.c_str(),"YOR334W")==0) && strcmp(tfName.c_str(),"YPR133C")==0)
-	{
-		cout << "Stop here " << endl;
-	}
+//	if((strcmp(tgtName.c_str(),"YOR334W")==0) && strcmp(tfName.c_str(),"YPR133C")==0)
+//	{
+//		cout << "Stop here " << endl;
+//	}
 
 	//return 0;
 	double mbeta1=beta1;

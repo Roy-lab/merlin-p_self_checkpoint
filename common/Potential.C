@@ -303,11 +303,12 @@ Potential::makeValidJPD()
 int
 Potential::makeValidJPD(gsl_matrix* ludecomp, gsl_permutation* p)
 {
-	if(inverse!=NULL)
+	//New!! Oct 12, 2020
+	/*if(inverse!=NULL)
 	{
 		delete inverse;
 	}
-	inverse=covariance->invMatrix(ludecomp,p);
+	inverse=covariance->invMatrix(ludecomp,p);*/
 	determinant=covariance->detMatrix(ludecomp,p);
 	if(determinant <0)
 	{
@@ -777,7 +778,7 @@ Potential::computeLL_Tracetrick(int sampleSize)
 	int dim=covariance->getRowCnt();
 	double constant=sampleSize*dim*log(2*PI);
 	ll=((double) sampleSize) * log(determinant);
-	Matrix sos=Matrix(vIDMatIndMap.size(),vIDMatIndMap.size());
+	/*Matrix sos=Matrix(vIDMatIndMap.size(),vIDMatIndMap.size());
 	for(int i=0;i<dim;i++)
 	{
 		for(int j=0;j<dim;j++)
@@ -791,9 +792,11 @@ Potential::computeLL_Tracetrick(int sampleSize)
 	for(int i=0;i<dim;i++)
 	{
 		t=t+m->getValue(i,i);
-	}
+	}*/
+	/////newOct 12, 2020
+	double t=(sampleSize-1)*dim;
 	ll=(ll+t+constant)*(-0.5);
-	delete m;
+	//delete m;
 	return ll;
 }
 

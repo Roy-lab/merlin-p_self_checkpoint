@@ -407,7 +407,7 @@ HierarchicalCluster::generateModules(map<int,HierarchicalClusterNode*>& currNode
 		}
 		oFile <<"|Spacer||"<<moduleCnt<<"|-" << endl;
 		*/
-		cout <<"Module: " << moduleCnt << "\tSize="<< moduleMembers->size() << endl;
+		//cout <<"Module: " << moduleCnt << "\tSize="<< moduleMembers->size() << endl;
 	
 		moduleCnt=moduleCnt+1;
 	}

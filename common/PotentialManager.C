@@ -748,6 +748,7 @@ int
 PotentialManager::estimateCovariance_Eff(bool random, int uId, int vId)
 {
 	double ssd=0;
+	//Oct 12, 2020: SR made this change as suggested by Shilu.
 	for(int i=0;i<data->getColCnt();i++) 
 	{
 		double vval=data->getValue(vId,i);
@@ -757,6 +758,10 @@ PotentialManager::estimateCovariance_Eff(bool random, int uId, int vId)
 		double diffprod=(vval-vmean)*(uval-umean);
 		ssd=ssd+diffprod;
 	}
+	//Oct 12, 2020: SR made this change as suggested by Shilu.
+	///double vmean=meanMat->getValue(vId,0);
+	//double umean=meanMat->getValue(uId,0);
+	//ssd=data->vectorMultiply(vId,vmean,uId,umean);
 	//cout <<"Total covariance pairs estimated " << covPair << endl;
 	//Now estimate the variance
 	double var=0;
@@ -1747,11 +1752,6 @@ PotentialManager::populatePotential_Eff(Potential* aPot, bool random)
 	{
 		double mean=0;
 		double cov=0;
-		/*if(globalMean.find(vIter->first)==globalMean.end())
-		{
-			cerr <<"No var with id " << vIter->first << endl;
-			exit(-1);
-		}*/
 		mean=meanMat->getValue(vIter->first,0);
 		aPot->updateMean(vIter->first,mean);
 		for(VSET_ITER uIter=vIter;uIter!=potVars.end();uIter++)

@@ -1167,3 +1167,20 @@ Matrix::countRowEq(int r, double v)
 	}
 	return cnt;
 }
+
+double
+Matrix::vectorMultiply(int i,double u1, int j,double u2)
+{
+
+	gsl_vector * x1 = gsl_vector_alloc(col);
+	gsl_vector * x2 = gsl_vector_alloc(col);
+	gsl_matrix_get_row(x1, matrix, i);
+	gsl_matrix_get_row(x2, matrix, j);
+	gsl_vector_add_constant (x1, -u1);
+	gsl_vector_add_constant (x2, -u2);
+	double ssd1=0;
+	gsl_blas_ddot(x1,x2,&ssd1);
+	gsl_vector_free(x1);
+	gsl_vector_free(x2);
+	return ssd1;
+}

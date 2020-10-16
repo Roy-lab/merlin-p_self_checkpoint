@@ -104,6 +104,7 @@ class Matrix
 		int getZeroRows(gsl_vector* rvec);
 		int countColEq(int c, double v);
 		int countRowEq(int r, double v);
+		double vectorMultiply(int i,double u1, int j,double u2);
 	private:
 		static void throwExp(const char * reason, const char * file, int line, int gsl_errno);
 		/* // not used 

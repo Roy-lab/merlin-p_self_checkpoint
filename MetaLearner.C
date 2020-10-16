@@ -840,21 +840,21 @@ MetaLearner::start_gradualMBIncrease(int f)
 				double scorePremodule=currGlobalScore;
 				EvidenceManager* evMgr=evMgrSet.begin()->second;
 				randOrder.clear();
-				evMgr->populateRandIntegers(rnd,randOrder,varSet.size(),varSet.size());				
+				//evMgr->populateRandIntegers(rnd,randOrder,varSet.size(),varSet.size());				
 				struct timeval begintime;
 				struct timeval endtime;
 				struct timezone begintimezone;
 				struct timezone endtimezone;
-				gettimeofday(&begintime,&begintimezone);
+				//gettimeofday(&begintime,&begintimezone);
 				while(subiter<varSet.size())
 				//while(notConverged && subiter<6000)
 				{
-					int rID=randOrder[subiter];
+					/*int rID=randOrder[subiter];
 					if(idVidMap.find(rID)==idVidMap.end())
 					{
 						cout <<"Variable at  " << rID << " just not found " << endl;
 						exit(0);
-					}
+					}*/
 					//int vID=idVidMap[rID];
 					int vID=idVidMap[subiter];
 					VSET_ITER vIter=varSet.find(vID);
@@ -884,7 +884,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 					struct timeval endtime_v;
 					struct timezone begintimezone_v;
 					struct timezone endtimezone_v;
-					gettimeofday(&begintime_v,&begintimezone_v);
+					//gettimeofday(&begintime_v,&begintimezone_v);
 					collectMoves(currK,vID);
 					if(moveSet.size()==0)
 					{
@@ -903,20 +903,20 @@ MetaLearner::start_gradualMBIncrease(int f)
 					affectedVariables.clear();
 					showid++;
 					attemptedMoves++;
-					gettimeofday(&endtime_v,&endtimezone_v);
-					printf("Time elapsed for one var %d secs %d microsec\n",endtime_v.tv_sec-begintime_v.tv_sec,endtime_v.tv_usec-begintime_v.tv_usec);
+					//gettimeofday(&endtime_v,&endtimezone_v);
+					//printf("Time elapsed for one var %d secs %d microsec\n",endtime_v.tv_sec-begintime_v.tv_sec,endtime_v.tv_usec-begintime_v.tv_usec);
 				}
-				gettimeofday(&endtime,&endtimezone);
+				//gettimeofday(&endtime,&endtimezone);
 				double newScore=getPLLScore();
 				currGlobalScore=newScore;
-				printf("Time elapsed for all vars %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
+				//printf("Time elapsed for all vars %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
 				if((currGlobalScore-scorePremodule)<=convThreshold)
 				{
 					notConverged=false;
 				}
 				else
 				{	
-					gettimeofday(&begintime,&begintimezone);
+				//	gettimeofday(&begintime,&begintimezone);
 					if(hcVersion==1)
 					{
 						redefineModules_Global_Eff();
@@ -925,8 +925,8 @@ MetaLearner::start_gradualMBIncrease(int f)
 					{
 						redefineModules_Global();
 					}
-					gettimeofday(&endtime,&endtimezone);
-					printf("Time elapsed for module inference %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
+				//	gettimeofday(&endtime,&endtimezone);
+				//	printf("Time elapsed for module inference %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
 				}
 				scorePremodule=currGlobalScore;
 				dumpAllGraphs(currK,f,iter);

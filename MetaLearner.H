@@ -98,8 +98,10 @@ class MetaLearner
 	int makeMoves();
 	int attemptMove(MetaMove*,map<int,INTINTMAP*>&);
 	bool doesEdgeExist(int,int,int);
+	bool doesEdgeExist(int,int);
 	int getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, string& edgeKey, double& mbScore, double& scoreImprovement,Potential**);
 	int getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, double& mbScore, double& scoreImprovement,Potential**);
+	int getNewPLLScore_NoEdgeKey(Variable* u, Variable* v, double& mbScore, double& scoreImprovement,Potential**);
 	double getNewPLLScore_Condition(int cId, int csetId, int vId, Potential* newPot,int);
 	double getNewPLLScore_Condition(int csetId, int vId, Potential* newPot);
 	double getNewPLLScore_Condition(int csetId, int vId, int uID, Potential* newPot);
@@ -114,6 +116,7 @@ class MetaLearner
 	int getEdgeVars(string&, char*, char*);
 	bool checkMBSize(INTINTMAP*,int,int,int);
 	bool checkMBSize(int,int,int,int);
+	bool checkMBSize(int,int,int);
 	int populateGraphsFromFile(const char*);
 	
 	int normalizeWeight(INTDBLMAP&);

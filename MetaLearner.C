@@ -911,10 +911,10 @@ MetaLearner::start_gradualMBIncrease(int f)
 					showid++;
 					attemptedMoves++;
 					//dump every thousand vars
-					if(subiter%1000==0)
+					/*if(subiter%1000==0)
 					{
 						dumpAllGraphs(currK,f,iter);
-					}
+					}*/
 					//gettimeofday(&endtime_v,&endtimezone_v);
 					//printf("Time elapsed for one var %d secs %d microsec\n",endtime_v.tv_sec-begintime_v.tv_sec,endtime_v.tv_usec-begintime_v.tv_usec);
 				}
@@ -1952,8 +1952,6 @@ MetaLearner::collectMoves(int currK)
 				Potential* aPot=NULL;
 				INTDBLMAP pll;
 				INTINTMAP* cset=getConditionSet(cIter->first);
-				//if (addedEdges[u->getID()][v->getID()])
-				//if(cIter->second==1)
 				if(doesEdgeExist(regID,vIter->first,cIter->first))
 				{
 					pll.clear();
@@ -2066,172 +2064,162 @@ MetaLearner::collectMoves(int currK,int rind)
 	{
 		return 0;
 	}
-	//for(VSET_ITER vIter=varSet.begin();vIter!=varSet.end();vIter++)
-	//{
-		Variable* v=vIter->second;
-		if(geneModuleID.find(v->getName())==geneModuleID.end())
+	Variable* v=vIter->second;
+	if(geneModuleID.find(v->getName())==geneModuleID.end())
+	{
+		return 0;
+	}
+	int moduleID=geneModuleID[v->getName()];
+	map<string,int>* moduleMembers=moduleGeneSet[moduleID];
+	double bestTargetScore=0;
+	double bestScoreImprovement=0;
+	int bestCondSetInd=-1;
+	Variable* bestu=NULL;
+	//map<int,double> bestConditionImprovement;
+	//map<int,double> bestConditionScore;
+	//map<int,double> bestCondSpecPLL;
+	double bestConditionImprovement;
+	double bestConditionScore;
+	double bestCondSpecPLL;
+
+	Potential* bestPot=NULL;
+	bool bestUpdate=false;
+	for(map<string,int>::iterator uIter=restrictedVarList.begin();uIter!=restrictedVarList.end();uIter++)
+	{
+		int regID=varManager->getVarID(uIter->first.c_str());
+		if(regID==-1)
 		{
-			return 0;
-			//continue;
+			continue;
 		}
-		int moduleID=geneModuleID[v->getName()];
-		map<string,int>* moduleMembers=moduleGeneSet[moduleID];
-		double bestTargetScore=0;
-		double bestScoreImprovement=0;
-		int bestCondSetInd=-1;
-		Variable* bestu=NULL;
-		map<string,INTDBLMAP*> impEdgeScoreImprovement;
-		map<int,double> bestConditionImprovement;
-		map<int,double> bestConditionScore;
-		map<int,double> bestCondSpecPLL;
-		Potential* bestPot=NULL;
-		bool bestUpdate=false;
-		for(map<string,int>::iterator uIter=restrictedVarList.begin();uIter!=restrictedVarList.end();uIter++)
+		
+		if(vIter->first==regID)
 		{
-			int regID=varManager->getVarID(uIter->first.c_str());
-			if(regID==-1)
+			continue;
+		}
+		Variable* u=varSet[regID];
+		//INTINTMAP* conditionSet=myConditionSet; //edgeConditionMap[edgeKey];
+		//map<int,double> conditionImprovement;
+		//map<int,double> conditionScore;
+		double conditionImprovement=0;
+		double conditionScore=0;
+		//for(INTINTMAP_ITER cIter=conditionSet->begin();cIter!=conditionSet->end();cIter++)
+		//{
+			double scoreImprovement=0;
+			double newTargetScore=0;
+			Potential* aPot=NULL;
+			//INTDBLMAP pll;
+			//INTINTMAP* cset=getConditionSet(cIter->first);
+			//if (addedEdges[u->getID()][v->getID()])
+			//if(cIter->second==1)
+			//if(doesEdgeExist(regID,vIter->first,cIter->first))
+			if(doesEdgeExist(regID,vIter->first))
 			{
+			//	pll.clear();
 				continue;
 			}
-			
-			if(vIter->first==regID)
+			//if(!checkMBSize(cIter->first,regID,vIter->first,currK))
+			if(!checkMBSize(regID,vIter->first,currK))
 			{
+			//	pll.clear();
 				continue;
 			}
-			Variable* u=varSet[regID];
-			/*if(priorGraph_ChIP.find(u->getName())==priorGraph_ChIP.end())
+			//getNewPLLScore(cIter->first,*cset,u,v,edgeKey,newTargetScore,scoreImprovement,&aPot);
+			//getNewPLLScore_NoEdgeKey(cIter->first,*cset,u,v,newTargetScore,scoreImprovement,&aPot);
+			getNewPLLScore_NoEdgeKey(u,v,newTargetScore,scoreImprovement,&aPot);
+			//double moduleWideScoreImprovement=getModuleWideScoreImprovement(cIter->first,*cset,u,v,moduleMembers);
+			//conditionImprovement[cIter->first]=scoreImprovement;
+			//conditionScore[cIter->first]=newTargetScore;
+			conditionImprovement=scoreImprovement;
+			conditionScore=newTargetScore;
+			if(scoreImprovement<0)
 			{
+			//	pll.clear();
 				continue;
 			}
-			map<string,double>* tgts=priorGraph_ChIP[u->getName()];
-			if(tgts->find(v->getName())==tgts->end())
+			//if((bestCondSetInd==-1) || (bestScoreImprovement<(scoreImprovement+moduleWideScoreImprovement)))
+			if(bestScoreImprovement<scoreImprovement)
 			{
-				continue;
-			}*/
-			//string edgeKey;
-			//edgeKey.append(u->getName().c_str());
-			//edgeKey.append("\t");
-			//edgeKey.append(v->getName().c_str());
-			//Generate next condition assignments
-			//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
-			//{
-			//	cout <<"No edge " << edgeKey.c_str() << " u " << u->getID() << " v " << v->getID()<< endl;
-			//	exit(0);
-			//}
-			//INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
-			INTINTMAP* conditionSet=myConditionSet; //edgeConditionMap[edgeKey];
-			map<int,double> conditionImprovement;
-			map<int,double> conditionScore;
-			for(INTINTMAP_ITER cIter=conditionSet->begin();cIter!=conditionSet->end();cIter++)
-			{
-				double scoreImprovement=0;
-				double newTargetScore=0;
-				Potential* aPot=NULL;
-				INTDBLMAP pll;
-				INTINTMAP* cset=getConditionSet(cIter->first);
-				//if (addedEdges[u->getID()][v->getID()])
-				//if(cIter->second==1)
-				if(doesEdgeExist(regID,vIter->first,cIter->first))
+				bestu=u;
+				bestTargetScore=newTargetScore;
+				bestScoreImprovement=scoreImprovement;
+				//bestCondSetInd=cIter->first;
+				bestUpdate=true;
+				/*bestCondSpecPLL.clear();
+				for(INTDBLMAP_ITER dIter=pll.begin();dIter!=pll.end();dIter++)
 				{
-					pll.clear();
-					continue;
-				}
-				if(!checkMBSize(cIter->first,regID,vIter->first,currK))
+					bestCondSpecPLL[dIter->first]=dIter->second;
+				}*/
+				if(bestPot!=NULL)
 				{
-					pll.clear();
-					continue;
+					delete bestPot;
 				}
-				//getNewPLLScore(cIter->first,*cset,u,v,edgeKey,newTargetScore,scoreImprovement,&aPot);
-				getNewPLLScore_NoEdgeKey(cIter->first,*cset,u,v,newTargetScore,scoreImprovement,&aPot);
-				double moduleWideScoreImprovement=getModuleWideScoreImprovement(cIter->first,*cset,u,v,moduleMembers);
-				conditionImprovement[cIter->first]=scoreImprovement;
-				conditionScore[cIter->first]=newTargetScore;
-				if(scoreImprovement<0)
-				{
-					pll.clear();
-					continue;
-				}
-				if((bestCondSetInd==-1) || (bestScoreImprovement<(scoreImprovement+moduleWideScoreImprovement)))
-				{
-					bestu=u;
-					bestTargetScore=newTargetScore;
-					bestScoreImprovement=scoreImprovement;
-					bestCondSetInd=cIter->first;
-					bestUpdate=true;
-					bestCondSpecPLL.clear();
-					for(INTDBLMAP_ITER dIter=pll.begin();dIter!=pll.end();dIter++)
-					{
-						bestCondSpecPLL[dIter->first]=dIter->second;
-					}
-					if(bestPot!=NULL)
-					{
-						delete bestPot;
-					}
-					bestPot=aPot;
-					if(strcmp(v->getName().c_str(),"YHR108W")==0)
-					{
-						cout <<"Stop here" << endl;
-					}
-				}
-				else
+				bestPot=aPot;
+			}
+			else
+			{	
+				if(aPot!=NULL)
 				{
 					delete aPot;
 				}
-				pll.clear();
 			}
-			if(bestUpdate)
+			//pll.clear();
+		//}
+		if(bestUpdate)
+		{
+			bestConditionImprovement=conditionImprovement;
+			bestConditionScore=conditionScore;
+			/*bestConditionImprovement.clear();
+			for(INTDBLMAP_ITER cvIter=conditionImprovement.begin();cvIter!=conditionImprovement.end();cvIter++)
 			{
-				bestConditionImprovement.clear();
-				for(INTDBLMAP_ITER cvIter=conditionImprovement.begin();cvIter!=conditionImprovement.end();cvIter++)
-				{
-					bestConditionImprovement[cvIter->first]=cvIter->second;
-					bestConditionScore[cvIter->first]=conditionScore[cvIter->first];
-				}
-			}
-			conditionImprovement.clear();
-			conditionScore.clear();
-			bestUpdate=false;
+				bestConditionImprovement[cvIter->first]=cvIter->second;
+				bestConditionScore[cvIter->first]=conditionScore[cvIter->first];
+			}*/
 		}
-		//At this stage we have the best condition set for the pair {u,bestv}.
-		if((bestu==NULL) || (bestScoreImprovement<=0))
-		{
-		//	testedEdges.clear();
-			return 0;
-		//	continue;
-		}
-		MetaMove* move=new MetaMove;
-		move->setSrcVertex(bestu->getID());
-		move->setConditionSetInd(bestCondSetInd);
-		for(INTDBLMAP_ITER dIter=bestCondSpecPLL.begin();dIter!=bestCondSpecPLL.end();dIter++)
-		{
-			move->pll[dIter->first]=dIter->second;
-		}
-		cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
-		for(INTDBLMAP_ITER cvIter=bestConditionImprovement.begin();cvIter!=bestConditionImprovement.end();cvIter++)
-		{
-			cout << " "<<cvIter->first<<"=" << cvIter->second;
-		}
-		cout << " scores" ;
-		for(INTDBLMAP_ITER cvIter=bestConditionScore.begin();cvIter!=bestConditionScore.end();cvIter++)
-		{
-			cout << " "<<cvIter->first<<"=" << cvIter->second;
-		}
-		/*for(map<string,double>::iterator kIter=knownRegulatorScore.begin();kIter!=knownRegulatorScore.end();kIter++)
-		{
-			cout <<" " << kIter->first<<"="<< kIter->second;
-		}*/
-		cout << endl; 
-		bestCondSpecPLL.clear();
-		bestConditionScore.clear();
-		move->setTargetVertex(v->getID());
-		move->setTargetMBScore(bestTargetScore);
-		move->setScoreImprovement(bestScoreImprovement);
-		move->setDestPot(bestPot);
-		moveSet.push_back(move);
-	//}
-	//testedEdges.clear();
+		//conditionImprovement.clear();
+		//conditionScore.clear();
+		bestUpdate=false;
+	}
+	//At this stage we have the best condition set for the pair {u,bestv}.
+	if((bestu==NULL) || (bestScoreImprovement<=0))
+	{
+	//	testedEdges.clear();
+		return 0;
+	//	continue;
+	}
+	MetaMove* move=new MetaMove;
+	move->setSrcVertex(bestu->getID());
+	move->setConditionSetInd(bestCondSetInd);
+	/*for(INTDBLMAP_ITER dIter=bestCondSpecPLL.begin();dIter!=bestCondSpecPLL.end();dIter++)
+	{
+		move->pll[dIter->first]=dIter->second;
+	}*/
+	cout <<"CurrK: "<< currK << " Found edge for " << bestCondSetInd <<" "  << bestu->getName().c_str() << "<->" << v->getName() << " score deltas";
+	/*for(INTDBLMAP_ITER cvIter=bestConditionImprovement.begin();cvIter!=bestConditionImprovement.end();cvIter++)
+	{
+		cout << " "<<cvIter->first<<"=" << cvIter->second;
+	}*/
+	cout << bestConditionImprovement;
+	cout << " scores" ;
+	/*for(INTDBLMAP_ITER cvIter=bestConditionScore.begin();cvIter!=bestConditionScore.end();cvIter++)
+	{
+		cout << " "<<cvIter->first<<"=" << cvIter->second;
+	}*/
+	cout<<" =" <<bestConditionScore;
+	/*for(map<string,double>::iterator kIter=knownRegulatorScore.begin();kIter!=knownRegulatorScore.end();kIter++)
+	{
+		cout <<" " << kIter->first<<"="<< kIter->second;
+	}*/
+	cout << endl; 
+	//bestCondSpecPLL.clear();
+	//bestConditionScore.clear();
+	move->setTargetVertex(v->getID());
+	move->setTargetMBScore(bestTargetScore);
+	move->setScoreImprovement(bestScoreImprovement);
+	move->setDestPot(bestPot);
+	moveSet.push_back(move);
 	return 0;
 }
+
 double
 MetaLearner::getModuleWideScoreImprovement(int cid,INTINTMAP& conditionSet,Variable* u, Variable* v,map<string,int>* moduleMembers)
 {
@@ -2277,11 +2265,29 @@ MetaLearner::getModuleWideScoreImprovement(int cid,INTINTMAP& conditionSet,Varia
 	return score;
 }
 
+
+
+
+
 bool 
 MetaLearner::doesEdgeExist(int uID, int vId, int csetid)
 {
 	bool edgePresent=false;
 	FactorGraph* fg=fgGraphSet[csetid];
+	SlimFactor* dFactor=fg->getFactorAt(vId);
+	if(dFactor->mergedMB.find(uID)!=dFactor->mergedMB.end())
+	{
+		edgePresent=true;
+	}
+	return edgePresent;
+}
+
+
+bool 
+MetaLearner::doesEdgeExist(int uID, int vId)
+{
+	bool edgePresent=false;
+	FactorGraph* fg=fgGraphSet.begin()->second;
 	SlimFactor* dFactor=fg->getFactorAt(vId);
 	if(dFactor->mergedMB.find(uID)!=dFactor->mergedMB.end())
 	{
@@ -2390,6 +2396,7 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 		//gettimeofday(&begintime,&begintimezone);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),*newdPot);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),u->getID(),*newdPot);
+		//newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
 		newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
 		newPLL_d=newPLL_d+currPrior;
 		int keyid=evMgrSet.begin()->first;
@@ -2459,7 +2466,6 @@ int
 MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, double& mbScore, double& scoreImprovement, Potential** newdPot)
 {
 	VSET& varSet=varManager->getVariableSet();
-	map<int,Potential*> dPots;
 	map<int,bool> dPotDels;
 	scoreImprovement=0;
 	bool delFromD=true;
@@ -2468,105 +2474,79 @@ MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable
 	double minus=0;
 	struct timeval begintime;
 	struct timeval endtime;
-	struct timeval begintime2;
-	struct timeval endtime2;
 	struct timezone begintimezone;
 	struct timezone endtimezone;
-	struct timezone begintimezone2;
-	struct timezone endtimezone2;
-	//gettimeofday(&begintime2,&begintimezone2);
-	for(INTINTMAP_ITER cIter=conditionSet.begin();cIter!=conditionSet.end();cIter++)
+	PotentialManager* potMgr=potMgrSet.begin()->second;
+	FactorGraph* fg=fgGraphSet.begin()->second;
+	SlimFactor* dFactor=fg->getFactorAt(v->getID());
+	int status=0;
+	//gettimeofday(&begintime,&begintimezone);
+	//Potential *dPot=new Potential;
+	//dPot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
+	for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
 	{
-		PotentialManager* potMgr=potMgrSet[cIter->first];
-		FactorGraph* fg=fgGraphSet[cIter->first];
-		SlimFactor* dFactor=fg->getFactorAt(v->getID());
-		//Pretend as if we were already adding dFactor into sFactor's MB
-		/*if(cIter->second==1)
-		{
-			if(dFactor->mergedMB.find(u->getID())!=dFactor->mergedMB.end())
-			{
-				delFromD=false;
-			}
-			dPotDels[cIter->first]=delFromD;
-			dFactor->mergedMB[u->getID()]=0;
-		}*/
-		//gettimeofday(&begintime,&begintimezone);
-		Potential *dPot=new Potential;
-		dPot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
-		for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
-		{
-			Variable* aVar=varSet[mIter->first];
-			dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
-			double eprior=getEdgePrior(mIter->first,v->getID());
-			//double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
-			double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
-			double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
-			double edgeProbOld=1/(1+exp(-1*(eprior)));
-			minus=minus+log(1-edgeProbOld);
-			plus=plus+log(edgeProb);
-		}
-		
-		Variable* aVar=varSet[u->getID()];
-		dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
-		double eprior=getEdgePrior(u->getID(),v->getID());
+		Variable* aVar=varSet[mIter->first];
+		//dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+		double eprior=getEdgePrior(mIter->first,v->getID());
+		//double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
 		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 		double edgeProbOld=1/(1+exp(-1*(eprior)));
 		minus=minus+log(1-edgeProbOld);
 		plus=plus+log(edgeProb);
-		
-		dPots[cIter->first]=dPot;
-		//gettimeofday(&endtime,&endtimezone);
-		//cout <<"Time for adding variables to potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
-
-		//gettimeofday(&begintime,&begintimezone);
-		dPot->potZeroInit();
-		//gettimeofday(&endtime,&endtimezone);
-		//cout <<"Time for potzerotinit " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
-		//dPot->setCondBias(dFactor->potFunc->getCondBias());
-		//dPot->setCondVariance(dFactor->potFunc->getCondVariance());
-		//dPot->setCondWeight(dFactor->potFunc->getCondWeight());
 	}
-	//gettimeofday(&endtime2,&endtimezone2);
-	//cout <<"Time for all init of vars " <<endtime2.tv_usec-begintime2.tv_usec << " microsecs " << endtime2.tv_sec-begintime2.tv_sec << " secs" << endl;
-	currPrior=currPrior+plus-minus;
-	string condKey;
-	genCondSetKey(conditionSet,condKey);
-	PotentialManager* potMgr=potMgrSet[cid];
-	double newPLL_d=0;
-	*newdPot=dPots[cid];
-	//potMgr->populatePotential(*newdPot,random);
-	//gettimeofday(&begintime,&begintimezone);
-	potMgr->populatePotential_Eff(*newdPot,random);
-	(*newdPot)->initMBCovMean();
+	
+	Variable* aVar=varSet[u->getID()];
+	//dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+	double eprior=getEdgePrior(u->getID(),v->getID());
+	double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+	double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+	double edgeProbOld=1/(1+exp(-1*(eprior)));
+	minus=minus+log(1-edgeProbOld);
+	plus=plus+log(edgeProb);
+		
 	//gettimeofday(&endtime,&endtimezone);
-	//cout <<"Time for updating potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
-	for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
+	//cout <<"Time for adding variables to potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+
+	currPrior=currPrior+plus-minus;
+	double newPLL_d=0;
+	newPLL_d=potMgr->getNewPLLScore_Condition_Tracetrick(v->getID(),u->getID(),dFactor->mergedMB,status);
+	newPLL_d=newPLL_d+currPrior;
+	int keyid=evMgrSet.begin()->first;
+	INTDBLMAP* plls=currPLLMap[keyid];
+	double oldPLL_d=(*plls)[v->getID()];
+	double dImpr=newPLL_d-oldPLL_d;
+	if(dImpr<=0)
 	{
-		Potential* dPot=pIter->second;
-		if((dPot->getCondVariance()<0) || (isnan(dPot->getCondVariance())) || (isinf(dPot->getCondVariance()))
-		)
-		{
-			scoreImprovement=-1;
-		}
+		scoreImprovement=-1;
+	}
+	else
+	{
+		scoreImprovement=dImpr;
+		//mbScore=newPLL_d + log(edgeProb);
+		mbScore=newPLL_d;
+	}
+	//gettimeofday(&endtime,&endtimezone);
+	//*newdPot=dPot;
+	/*potMgr->populatePotential_Eff(*newdPot,random);
+	(*newdPot)->initMBCovMean();
+	if((dPot->getCondVariance()<0) || (isnan(dPot->getCondVariance())) || (isinf(dPot->getCondVariance())))
+	{
+		scoreImprovement=-1;
 	}
 	if(scoreImprovement!=-1)
 	{
 		//gettimeofday(&begintime,&begintimezone);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),*newdPot);
 		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),u->getID(),*newdPot);
-		newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
+		//newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
+		newPLL_d=getNewPLLScore_Condition_Tracetrick(-1,v->getID(),u->getID(),*newdPot);
 		newPLL_d=newPLL_d+currPrior;
 		int keyid=evMgrSet.begin()->first;
 		INTDBLMAP* plls=currPLLMap[keyid];
 		double oldPLL_d=(*plls)[v->getID()];
 		double dImpr=newPLL_d-oldPLL_d;
-		//if(edgePresenceProb.find(edgeKey)==edgePresenceProb.end())
-		//{
-		//	cout <<"No edge prior for " << edgeKey.c_str() << endl;
-		//	exit(0);
-		//}
-	//	double priorImpr=log(edgeProb)-log(1-edgeProb);
+		//double priorImpr=log(edgeProb)-log(1-edgeProb);
 		//dImpr=dImpr+priorImpr;
 		
 		if(dImpr<=0)
@@ -2583,45 +2563,139 @@ MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable
 			scoreImprovement=dImpr;
 			//mbScore=newPLL_d + log(edgeProb);
 			mbScore=newPLL_d;
-			for(map<int,Potential*>::iterator sIter=dPots.begin();sIter!=dPots.end();sIter++)
-			{
-				if(sIter->first==cid)
-				{
-					continue;
-				}
-				delete sIter->second;
-			}
-			dPots.clear();
 		}
 		//gettimeofday(&endtime,&endtimezone);
 		//cout <<"Time for getting the score " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl <<endl;
-	}
-	/*for(map<int,bool>::iterator bIter=dPotDels.begin();bIter!=dPotDels.end();bIter++)
-	{
-		if(bIter->second==false)
-		{
-			continue;
-		}
-		bool delFromD=bIter->first;
-		FactorGraph* fg=fgGraphSet[bIter->first];
-		SlimFactor* dFactor=fg->getFactorAt(v->getID());
-		INTINTMAP_ITER dIter=dFactor->mergedMB.find(u->getID());
-		dFactor->mergedMB.erase(dIter);
 	}*/
-	if(scoreImprovement<0)
-	{
-		for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
-		{
-			delete pIter->second;
-		}
-		dPots.clear();
-		*newdPot=NULL;
-	}
 	return 0;
 }
 
 
+int
+MetaLearner::getNewPLLScore_NoEdgeKey(Variable* u, Variable* v, double& mbScore, double& scoreImprovement, Potential** newdPot)
+{
+	VSET& varSet=varManager->getVariableSet();
+	//map<int,Potential*> dPots;
+	map<int,bool> dPotDels;
+	scoreImprovement=0;
+	bool delFromD=true;
+	double currPrior=varNeighborhoodPrior[v->getID()];
+	double plus=0;
+	double minus=0;
+	struct timeval begintime;
+	struct timeval endtime;
+	struct timeval begintime2;
+	struct timeval endtime2;
+	struct timezone begintimezone;
+	struct timezone endtimezone;
+	struct timezone begintimezone2;
+	struct timezone endtimezone2;
+	//gettimeofday(&begintime2,&begintimezone2);
+	PotentialManager* potMgr=potMgrSet.begin()->second;
+	FactorGraph* fg=fgGraphSet.begin()->second;
+	SlimFactor* dFactor=fg->getFactorAt(v->getID());
+	//gettimeofday(&begintime,&begintimezone);
+	//Potential *dPot=new Potential;
+	//dPot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
+	for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
+	{
+		Variable* aVar=varSet[mIter->first];
+		//dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+		double eprior=getEdgePrior(mIter->first,v->getID());
+		//double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
+		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		minus=minus+log(1-edgeProbOld);
+		plus=plus+log(edgeProb);
+	}
+	
+	Variable* aVar=varSet[u->getID()];
+	//dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+	double eprior=getEdgePrior(u->getID(),v->getID());
+	double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+	double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+	double edgeProbOld=1/(1+exp(-1*(eprior)));
+	minus=minus+log(1-edgeProbOld);
+	plus=plus+log(edgeProb);
+	
+	//gettimeofday(&endtime,&endtimezone);
+	//cout <<"Time for adding variables to potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
 
+	currPrior=currPrior+plus-minus;
+	double newPLL_d=0;
+	//*newdPot=dPots[cid];
+	//*newdPot=dPot;
+	//gettimeofday(&begintime,&begintimezone);
+	//potMgr->populatePotential_Eff(*newdPot,random);
+	//(*newdPot)->initMBCovMean();
+	//gettimeofday(&endtime,&endtimezone);
+	//cout <<"Time for updating potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+	int status=0;
+	newPLL_d=potMgr->getNewPLLScore_Condition_Tracetrick(v->getID(),u->getID(),dFactor->mergedMB,status);
+	if(status<0)
+	{
+		scoreImprovement=-1;
+	}
+	else
+	{
+		newPLL_d=newPLL_d+currPrior;
+		int keyid=evMgrSet.begin()->first;
+		INTDBLMAP* plls=currPLLMap[keyid];
+		double oldPLL_d=(*plls)[v->getID()];
+		double dImpr=newPLL_d-oldPLL_d;
+		
+		if(dImpr<=0)
+		{
+			scoreImprovement=-1;
+		}
+		else
+			{	
+			scoreImprovement=dImpr;
+			mbScore=newPLL_d;
+		}
+	}
+	/*if((dPot->getCondVariance()<0) || (isnan(dPot->getCondVariance())) || (isinf(dPot->getCondVariance()))
+	)
+	{
+		scoreImprovement=-1;
+	}
+	if(scoreImprovement!=-1)
+	{
+		//gettimeofday(&begintime,&begintimezone);
+		newPLL_d=getNewPLLScore_Condition_Tracetrick(-1,v->getID(),u->getID(),*newdPot);
+		newPLL_d=newPLL_d+currPrior;
+		int keyid=evMgrSet.begin()->first;
+		INTDBLMAP* plls=currPLLMap[keyid];
+		double oldPLL_d=(*plls)[v->getID()];
+		double dImpr=newPLL_d-oldPLL_d;
+		
+		if(dImpr<=0)
+		{
+			scoreImprovement=-1;
+		}
+		else
+		{
+			if(!delFromD)
+			{	
+				cout <<"Trying to add the same regulator " << u->getName() <<" to " << v->getName() << endl;
+			}
+
+			scoreImprovement=dImpr;
+			mbScore=newPLL_d;
+		}
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for getting the score " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl <<endl;
+	}*/
+	if(scoreImprovement<0)
+	{
+	//	delete dPot;
+	//	*newdPot=NULL;
+	}
+
+	return 0;
+
+}
 
 
 double
@@ -2882,7 +2956,7 @@ MetaLearner::makeMoves()
 	{
 		MetaMove* move=moveSet[m];
 		int pool=0;
-		INTINTMAP* cSet=getConditionSet(move->getConditionSetInd());
+		//INTINTMAP* cSet=getConditionSet(move->getConditionSetInd());
 		if(attemptMove(move,affectedVariables)==0)
 		{
 			successMove++;
@@ -2891,7 +2965,10 @@ MetaLearner::makeMoves()
 		else
 		{
 			Potential* apot=move->getDestPot();
-			delete apot;
+			if(apot!=NULL)
+			{
+				delete apot;
+			}
 		}
 	}
 	//cout <<"Total successful moves " << successMove << " out of total " << moveSet.size() << " with net score improvement " << netScoreDelta<< endl;
@@ -2905,23 +2982,10 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 	string edgeKey;
 	Variable* u=varSet[move->getSrcVertex()];
 	Variable* v=varSet[move->getTargetVertex()];
-	edgeKey.append(u->getName().c_str());
-	edgeKey.append("\t");
-	edgeKey.append(v->getName().c_str());
-	
-	if(strcmp(u->getName().c_str(),"G114")==0 || strcmp(v->getName().c_str(),"G124")==0)
-	{
-		cout <<"Stop here" << endl;
-	}
-
-	//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
-	//{
-	//	cout <<"Edge " << edgeKey << " not found " << endl;
-	//	return -1;
-	//}
 	//INTINTMAP* conditionSet=edgeConditionMap[edgeKey];
 	INTINTMAP* conditionSet=myConditionSet; //edgeConditionMap[edgeKey];
-	int csetind=move->getConditionSetInd();
+	//int csetind=move->getConditionSetInd();
+	int csetind=1;
 	if(affectedVars.find(1)==affectedVars.end())
 	{
 		cout << "No csvars for condition " <<csetind<< endl;
@@ -2952,7 +3016,18 @@ MetaLearner::attemptMove(MetaMove* move,map<int,INTINTMAP*>& affectedVars)
 		//(*conditionSet)[cIter->first]=1; // do I need this?
 		//addedEdges[u->getID()][v->getID()]=true;
 		delete dFactor->potFunc;
-		dFactor->potFunc=move->getDestPot();
+		//dFactor->potFunc=move->getDestPot();
+		dFactor->potFunc=new Potential;
+		Potential* pot=dFactor->potFunc;
+		pot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
+		for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
+		{
+			pot->setAssocVariable(varSet[mIter->first],Potential::MARKOV_BNKT);
+		}
+		pot->potZeroInit();
+		PotentialManager* potMgr=potMgrSet.begin()->second;
+		potMgr->populatePotential_Eff(pot,random);
+		pot->initMBCovMean();
 		dFactor->updatePartialMeans(dFactor->potFunc->getAllPartialMeans());
 		INTDBLMAP* plls=currPLLMap.begin()->second;
 		(*plls)[dFactor->fId]=dFactor->mbScore;
@@ -3120,6 +3195,29 @@ MetaLearner::checkMBSize(int cid, int u,int v, int currK)
 	}
 	return check;
 }
+
+bool 
+MetaLearner::checkMBSize(int u,int v, int currK)
+{
+	bool check=true;
+	if(fgGraphSet.size()==0)
+	{
+		return check;
+	}
+	FactorGraph* fg=fgGraphSet.begin()->second;
+	SlimFactor* sFactor=fg->getFactorAt(u);
+	SlimFactor* dFactor=fg->getFactorAt(v);
+	/*if((sFactor->mergedMB.size()>=currK) && (sFactor->mergedMB.find(v)==sFactor->mergedMB.end()))
+	{
+		check=false;
+	}*/
+	if((dFactor->mergedMB.size()>=currK) && (dFactor->mergedMB.find(u)==dFactor->mergedMB.end()))
+	{
+		check=false;
+	}
+	return check;
+}
+
 
 int
 MetaLearner::populateGraphsFromFile(const char* aFName)

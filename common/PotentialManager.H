@@ -59,6 +59,8 @@ class PotentialManager
 		//POTVECT object stores the set of potentials for a particular factor
 		int populatePotential(Potential*,bool random);
 		int populatePotential_Eff(Potential*,bool random);
+		double getNewPLLScore_Condition_Tracetrick(int v,int u, INTINTMAP& potVars,int& status);
+		double computeLL_Tracetrick(int dim, double determinant);
 		
 		int populatePotential_EM(Potential*,int,int,map<int,EvidenceManager*>&,map<int,map<int,map<int,INTDBLMAP*>*>*>&,bool);
 		int estimatePotWeight(Potential* apot,int vId, int cid,double b, map<int,EvidenceManager*>& evSet,map<int,map<int,map<int,INTDBLMAP*>*>*>& gammas);

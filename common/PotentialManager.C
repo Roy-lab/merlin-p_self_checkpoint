@@ -1777,6 +1777,90 @@ PotentialManager::populatePotential_Eff(Potential* aPot, bool random)
 	return 0;
 }
 
+double
+PotentialManager::getNewPLLScore_Condition_Tracetrick(int v,int u, INTINTMAP& potVars,int& status)
+{
+	int vSize=potVars.size()+2;
+	int pSize=vSize-1;
+	Matrix* mycov=new Matrix(vSize,vSize);
+	Matrix* pcov=new Matrix(pSize,pSize);
+	int id=0;
+	//get all the variance entries for 
+	int* vids=new int[vSize];
+	vids[0]=v;
+	vids[1]=u;
+	for(INTINTMAP_ITER aIter=potVars.begin();aIter!=potVars.end();aIter++)
+	{
+		vids[id+2]=aIter->first;
+		id++;
+	}
+	for(int i=0;i<vSize;i++)
+	{
+		for(int j=i;j<vSize;j++)
+		{
+			double cval=covMat->getValue(vids[i],vids[j]);
+			if(cval==-1)
+			{
+				estimateCovariance_Eff(false,vids[i],vids[j]);
+			}
+			cval=covMat->getValue(vids[i],vids[j]);
+			mycov->setValue(cval,i,j);
+			mycov->setValue(cval,j,i);
+		}
+	}
+	double mydet=mycov->detMatrix();
+	if(mydet<=0)
+	{
+		status=-1;
+		return 0;
+	}
+	for(int i=0;i<pSize;i++)
+	{
+		for(int j=i;j<pSize;j++)
+		{
+			//We know that everything from 1 onwards is needed for the parent
+			double cval=covMat->getValue(vids[i+1],vids[j+1]);
+			if(cval==-1)
+			{
+				estimateCovariance_Eff(false,vids[i+1],vids[j+1]);
+			}
+			cval=covMat->getValue(vids[i+1],vids[j+1]);
+			pcov->setValue(cval,i,j);
+			pcov->setValue(cval,j,i);
+		}
+	}
+	double pdet=pcov->detMatrix();
+	if(pdet<=0)
+	{
+		status=-1;
+		return 0;
+	}
+    	double jointll1 = computeLL_Tracetrick(vSize,mydet);
+	double jointll2 = computeLL_Tracetrick(pSize,pdet);
+	double pll = jointll1 - jointll2;
+ 	if(isinf(pll))
+	{
+        	status=-1;
+  	      //cout <<"Target=" << sFactor->fId <<" determinant=" << determinant << " dim=" << ParChildID.size() << " determinantParent=" << determinantP <<  " dimP=" <<mbsize << " var(target)=" <<covMat->getValue(vId,vId) <<" mbcondVar=" << mbcondVar <<endl;
+        	return 0;
+	}
+    
+	delete mycov;
+	delete pcov;
+	delete[] vids;
+	return pll;
+}
+
+double
+PotentialManager::computeLL_Tracetrick(int dim, double determinant)  //sampleSize=testdataSize{
+{
+	int sampleSize=data->getColCnt();
+	double ll=sampleSize * (dim*log(2*PI)+log(determinant));
+	double t=dim*(sampleSize-1);
+	ll=(ll+t)*(-0.5);
+	return ll;
+}
+
 
 int
 PotentialManager::populatePotential_EM(Potential* apot,int vId, int cid, map<int,EvidenceManager*>& evSet,map<int,map<int,map<int,INTDBLMAP*>*>*>& gammas, bool newB)

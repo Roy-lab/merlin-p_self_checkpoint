@@ -46,6 +46,8 @@ MetaLearner::MetaLearner()
 	myConditionSet=NULL;
 	//edgeUpdates=NULL;
 	edgePresenceProb=NULL;
+	//This is actually the module prior
+	beta_motif=0;
 }
 
 MetaLearner::~MetaLearner()
@@ -791,6 +793,10 @@ MetaLearner::start_gradualMBIncrease(int f)
 		idVidMap[i]=vIter->first;
 		i++;
 	}
+	struct timeval begininfer_time;
+	struct timeval endinfer_time;
+	struct timezone begininfer_timezone;
+	struct timezone endinfer_timezone;
 	if(strlen(trueGraphFName)==0)
 	{
 		double currGlobalScore = 0;
@@ -835,6 +841,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 			bool notConverged=true;
 			while(notConverged && iter<50)
 			{
+				gettimeofday(&begininfer_time,&begininfer_timezone);
 				int attemptedMoves=0;
 				int subiter=0;
 				double scorePremodule=currGlobalScore;
@@ -903,6 +910,11 @@ MetaLearner::start_gradualMBIncrease(int f)
 					affectedVariables.clear();
 					showid++;
 					attemptedMoves++;
+					//dump every thousand vars
+					if(subiter%1000==0)
+					{
+						dumpAllGraphs(currK,f,iter);
+					}
 					//gettimeofday(&endtime_v,&endtimezone_v);
 					//printf("Time elapsed for one var %d secs %d microsec\n",endtime_v.tv_sec-begintime_v.tv_sec,endtime_v.tv_usec-begintime_v.tv_usec);
 				}
@@ -914,7 +926,7 @@ MetaLearner::start_gradualMBIncrease(int f)
 				{
 					notConverged=false;
 				}
-				else
+				else if(abs(beta_motif)>0)
 				{	
 				//	gettimeofday(&begintime,&begintimezone);
 					if(hcVersion==1)
@@ -928,14 +940,22 @@ MetaLearner::start_gradualMBIncrease(int f)
 				//	gettimeofday(&endtime,&endtimezone);
 				//	printf("Time elapsed for module inference %d mins %d secs %d microsec\n", endtimezone.tz_minuteswest-begintimezone.tz_minuteswest, endtime.tv_sec-begintime.tv_sec,endtime.tv_usec-begintime.tv_usec);
 				}
+				else
+				{
+					cout<<"No modules needed!"<<endl;
+				}
 				scorePremodule=currGlobalScore;
 				dumpAllGraphs(currK,f,iter);
 				writeIterCnt(f,iter);
 				writePLLScore();
 				writeLastUpdate();
 				doTar();
+				//let's checkpoint every iter. Update: Not now
+				//notConverged=false;
 				iter++;
 				//cout <<"Current Score " << currGlobalScore << endl;
+				gettimeofday(&endinfer_time,&endinfer_timezone);
+				printf("Iter:%d Time elapsed for all network inference %d mins %d secs %d microsec\n",iter, endinfer_timezone.tz_minuteswest-begininfer_timezone.tz_minuteswest, endinfer_time.tv_sec-begininfer_time.tv_sec,endinfer_time.tv_usec-begininfer_time.tv_usec);
 			}
 			moduleiter++;
 		}
@@ -2088,25 +2108,10 @@ MetaLearner::collectMoves(int currK,int rind)
 			{
 				continue;
 			}*/
-			string edgeKey;
-			edgeKey.append(u->getName().c_str());
-			edgeKey.append("\t");
-			edgeKey.append(v->getName().c_str());
-			//if(strcmp(edgeKey.c_str(),"YML076C\tYPR139C")==0 || strcmp(edgeKey.c_str(),"YER068W\tYPR161C")==0)
-			//if(strcmp(edgeKey.c_str(),"YNL236W\tYPL188W")==0 || strcmp(edgeKey.c_str(),"YER068W\tYPR161C")==0)
-			/*if(strcmp(edgeKey.c_str(),"YLR223C\tYHR108W")==0 || strcmp(edgeKey.c_str(),"YMR182C\tYHR108W")==0)
-			{
-				cout <<"Stop here" << endl;
-			}
-			if(testedEdges.find(edgeKey)!=testedEdges.end())
-			{
-				continue;
-			}
-			if(resumeEdges.find(edgeKey)!=resumeEdges.end())
-			{
-				continue;
-			}
-			testedEdges[edgeKey]=0;*/
+			//string edgeKey;
+			//edgeKey.append(u->getName().c_str());
+			//edgeKey.append("\t");
+			//edgeKey.append(v->getName().c_str());
 			//Generate next condition assignments
 			//if(edgeConditionMap.find(edgeKey)==edgeConditionMap.end())
 			//{
@@ -2136,7 +2141,8 @@ MetaLearner::collectMoves(int currK,int rind)
 					pll.clear();
 					continue;
 				}
-				getNewPLLScore(cIter->first,*cset,u,v,edgeKey,newTargetScore,scoreImprovement,&aPot);
+				//getNewPLLScore(cIter->first,*cset,u,v,edgeKey,newTargetScore,scoreImprovement,&aPot);
+				getNewPLLScore_NoEdgeKey(cIter->first,*cset,u,v,newTargetScore,scoreImprovement,&aPot);
 				double moduleWideScoreImprovement=getModuleWideScoreImprovement(cIter->first,*cset,u,v,moduleMembers);
 				conditionImprovement[cIter->first]=scoreImprovement;
 				conditionScore[cIter->first]=newTargetScore;
@@ -2448,6 +2454,173 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 	}
 	return 0;
 }
+
+int
+MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, double& mbScore, double& scoreImprovement, Potential** newdPot)
+{
+	VSET& varSet=varManager->getVariableSet();
+	map<int,Potential*> dPots;
+	map<int,bool> dPotDels;
+	scoreImprovement=0;
+	bool delFromD=true;
+	double currPrior=varNeighborhoodPrior[v->getID()];
+	double plus=0;
+	double minus=0;
+	struct timeval begintime;
+	struct timeval endtime;
+	struct timeval begintime2;
+	struct timeval endtime2;
+	struct timezone begintimezone;
+	struct timezone endtimezone;
+	struct timezone begintimezone2;
+	struct timezone endtimezone2;
+	//gettimeofday(&begintime2,&begintimezone2);
+	for(INTINTMAP_ITER cIter=conditionSet.begin();cIter!=conditionSet.end();cIter++)
+	{
+		PotentialManager* potMgr=potMgrSet[cIter->first];
+		FactorGraph* fg=fgGraphSet[cIter->first];
+		SlimFactor* dFactor=fg->getFactorAt(v->getID());
+		//Pretend as if we were already adding dFactor into sFactor's MB
+		/*if(cIter->second==1)
+		{
+			if(dFactor->mergedMB.find(u->getID())!=dFactor->mergedMB.end())
+			{
+				delFromD=false;
+			}
+			dPotDels[cIter->first]=delFromD;
+			dFactor->mergedMB[u->getID()]=0;
+		}*/
+		//gettimeofday(&begintime,&begintimezone);
+		Potential *dPot=new Potential;
+		dPot->setAssocVariable(varSet[dFactor->fId],Potential::FACTOR);
+		for(INTINTMAP_ITER mIter=dFactor->mergedMB.begin();mIter!=dFactor->mergedMB.end();mIter++)
+		{
+			Variable* aVar=varSet[mIter->first];
+			dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+			double eprior=getEdgePrior(mIter->first,v->getID());
+			//double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)u->getName());
+			double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+			double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+			double edgeProbOld=1/(1+exp(-1*(eprior)));
+			minus=minus+log(1-edgeProbOld);
+			plus=plus+log(edgeProb);
+		}
+		
+		Variable* aVar=varSet[u->getID()];
+		dPot->setAssocVariable(aVar,Potential::MARKOV_BNKT);
+		double eprior=getEdgePrior(u->getID(),v->getID());
+		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
+		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
+		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		minus=minus+log(1-edgeProbOld);
+		plus=plus+log(edgeProb);
+		
+		dPots[cIter->first]=dPot;
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for adding variables to potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+
+		//gettimeofday(&begintime,&begintimezone);
+		dPot->potZeroInit();
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for potzerotinit " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+		//dPot->setCondBias(dFactor->potFunc->getCondBias());
+		//dPot->setCondVariance(dFactor->potFunc->getCondVariance());
+		//dPot->setCondWeight(dFactor->potFunc->getCondWeight());
+	}
+	//gettimeofday(&endtime2,&endtimezone2);
+	//cout <<"Time for all init of vars " <<endtime2.tv_usec-begintime2.tv_usec << " microsecs " << endtime2.tv_sec-begintime2.tv_sec << " secs" << endl;
+	currPrior=currPrior+plus-minus;
+	string condKey;
+	genCondSetKey(conditionSet,condKey);
+	PotentialManager* potMgr=potMgrSet[cid];
+	double newPLL_d=0;
+	*newdPot=dPots[cid];
+	//potMgr->populatePotential(*newdPot,random);
+	//gettimeofday(&begintime,&begintimezone);
+	potMgr->populatePotential_Eff(*newdPot,random);
+	(*newdPot)->initMBCovMean();
+	//gettimeofday(&endtime,&endtimezone);
+	//cout <<"Time for updating potential " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl;
+	for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
+	{
+		Potential* dPot=pIter->second;
+		if((dPot->getCondVariance()<0) || (isnan(dPot->getCondVariance())) || (isinf(dPot->getCondVariance()))
+		)
+		{
+			scoreImprovement=-1;
+		}
+	}
+	if(scoreImprovement!=-1)
+	{
+		//gettimeofday(&begintime,&begintimezone);
+		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),*newdPot);
+		//newPLL_d=getNewPLLScore_Condition(cid,v->getID(),u->getID(),*newdPot);
+		newPLL_d=getNewPLLScore_Condition_Tracetrick(cid,v->getID(),u->getID(),*newdPot);
+		newPLL_d=newPLL_d+currPrior;
+		int keyid=evMgrSet.begin()->first;
+		INTDBLMAP* plls=currPLLMap[keyid];
+		double oldPLL_d=(*plls)[v->getID()];
+		double dImpr=newPLL_d-oldPLL_d;
+		//if(edgePresenceProb.find(edgeKey)==edgePresenceProb.end())
+		//{
+		//	cout <<"No edge prior for " << edgeKey.c_str() << endl;
+		//	exit(0);
+		//}
+	//	double priorImpr=log(edgeProb)-log(1-edgeProb);
+		//dImpr=dImpr+priorImpr;
+		
+		if(dImpr<=0)
+		{
+			scoreImprovement=-1;
+		}
+		else
+		{
+			if(!delFromD)
+			{	
+				cout <<"Trying to add the same regulator " << u->getName() <<" to " << v->getName() << endl;
+			}
+
+			scoreImprovement=dImpr;
+			//mbScore=newPLL_d + log(edgeProb);
+			mbScore=newPLL_d;
+			for(map<int,Potential*>::iterator sIter=dPots.begin();sIter!=dPots.end();sIter++)
+			{
+				if(sIter->first==cid)
+				{
+					continue;
+				}
+				delete sIter->second;
+			}
+			dPots.clear();
+		}
+		//gettimeofday(&endtime,&endtimezone);
+		//cout <<"Time for getting the score " <<endtime.tv_usec-begintime.tv_usec << " microsecs " << endtime.tv_sec-begintime.tv_sec << " secs" << endl <<endl;
+	}
+	/*for(map<int,bool>::iterator bIter=dPotDels.begin();bIter!=dPotDels.end();bIter++)
+	{
+		if(bIter->second==false)
+		{
+			continue;
+		}
+		bool delFromD=bIter->first;
+		FactorGraph* fg=fgGraphSet[bIter->first];
+		SlimFactor* dFactor=fg->getFactorAt(v->getID());
+		INTINTMAP_ITER dIter=dFactor->mergedMB.find(u->getID());
+		dFactor->mergedMB.erase(dIter);
+	}*/
+	if(scoreImprovement<0)
+	{
+		for(map<int,Potential*>::iterator pIter=dPots.begin();pIter!=dPots.end();pIter++)
+		{
+			delete pIter->second;
+		}
+		dPots.clear();
+		*newdPot=NULL;
+	}
+	return 0;
+}
+
+
 
 
 

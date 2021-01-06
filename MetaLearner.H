@@ -99,6 +99,7 @@ class MetaLearner
 	int attemptMove(MetaMove*,map<int,INTINTMAP*>&);
 	bool doesEdgeExist(int,int,int);
 	int getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, string& edgeKey, double& mbScore, double& scoreImprovement,Potential**);
+	int getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable* u, Variable* v, double& mbScore, double& scoreImprovement,Potential**);
 	double getNewPLLScore_Condition(int cId, int csetId, int vId, Potential* newPot,int);
 	double getNewPLLScore_Condition(int csetId, int vId, Potential* newPot);
 	double getNewPLLScore_Condition(int csetId, int vId, int uID, Potential* newPot);

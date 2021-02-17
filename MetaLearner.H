@@ -201,6 +201,9 @@ class MetaLearner
 	int doTar();
 	//Trying to reuse the same hc objects and data
 	
+	//correcting prob
+	double correctProb(double);
+	
 	map<string,HierarchicalClusterNode*> nodeSet;
 	HierarchicalCluster hc;
 	int hcVersion;

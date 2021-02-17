@@ -2343,6 +2343,8 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 			double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 			double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 			double edgeProbOld=1/(1+exp(-1*(eprior)));
+			edgeProb=correctProb(edgeProb);
+			edgeProbOld=correctProb(edgeProbOld);
 			minus=minus+log(1-edgeProbOld);
 			plus=plus+log(edgeProb);
 		}
@@ -2353,6 +2355,8 @@ MetaLearner::getNewPLLScore(int cid, INTINTMAP& conditionSet, Variable* u, Varia
 		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		edgeProb=correctProb(edgeProb);
+		edgeProbOld=correctProb(edgeProbOld);
 		minus=minus+log(1-edgeProbOld);
 		plus=plus+log(edgeProb);
 		
@@ -2492,6 +2496,8 @@ MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable
 		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		edgeProb=correctProb(edgeProb);
+		edgeProbOld=correctProb(edgeProbOld);
 		minus=minus+log(1-edgeProbOld);
 		plus=plus+log(edgeProb);
 	}
@@ -2502,6 +2508,8 @@ MetaLearner::getNewPLLScore_NoEdgeKey(int cid, INTINTMAP& conditionSet, Variable
 	double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 	double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 	double edgeProbOld=1/(1+exp(-1*(eprior)));
+	edgeProb=correctProb(edgeProb);
+	edgeProbOld=correctProb(edgeProbOld);
 	minus=minus+log(1-edgeProbOld);
 	plus=plus+log(edgeProb);
 		
@@ -2606,6 +2614,8 @@ MetaLearner::getNewPLLScore_NoEdgeKey(Variable* u, Variable* v, double& mbScore,
 		double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 		double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 		double edgeProbOld=1/(1+exp(-1*(eprior)));
+		edgeProb=correctProb(edgeProb);
+		edgeProbOld=correctProb(edgeProbOld);
 		minus=minus+log(1-edgeProbOld);
 		plus=plus+log(edgeProb);
 	}
@@ -2616,6 +2626,8 @@ MetaLearner::getNewPLLScore_NoEdgeKey(Variable* u, Variable* v, double& mbScore,
 	double moduleContrib=getModuleContribLogistic((string&)v->getName(),(string&)aVar->getName());
 	double edgeProb=1/(1+exp(-1*(eprior+moduleContrib)));
 	double edgeProbOld=1/(1+exp(-1*(eprior)));
+	edgeProb=correctProb(edgeProb);
+	edgeProbOld=correctProb(edgeProbOld);
 	minus=minus+log(1-edgeProbOld);
 	plus=plus+log(edgeProb);
 	
@@ -4002,3 +4014,19 @@ MetaLearner::doTar()
 	system(tarCmd);
 	return 0;
 }
+
+double 
+MetaLearner::correctProb(double prob)
+{
+	double correctedProb=prob;
+	if(prob<1e-6)
+    	{
+        	correctedProb=1e-6;
+    	}
+	if(prob==1)
+    	{
+		correctedProb=1-1e-6;
+    	}
+	return correctedProb;
+}
+

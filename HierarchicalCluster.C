@@ -97,8 +97,12 @@ HierarchicalCluster::cluster(map<int,map<string,int>*>& modules,map<string,Hiera
 	for(int i=0;i<treenodecnt;i++)
 	{
 		delete [] distvalues[i];
+		//SR added Jun 25th 2022
+		delete [] distvalues_pcc[i];
 	}
 	delete [] distvalues;
+	//SR added Jun 25th 2022
+	delete [] distvalues_pcc;
 	attribs.clear();
 	backup.clear();
 	while(!myqueue.empty())

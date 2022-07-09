@@ -198,11 +198,11 @@ HierarchicalCluster::estimatePairwiseDist(map<int,HierarchicalClusterNode*>& cur
 	treenodecnt=(currNodeSet.size()*2) - 1;
 	distvalues=new double*[treenodecnt];
 	bool initPCC=false;
-	if(distvalues_pcc==NULL)
-	{
+	//if(distvalues_pcc==NULL)
+	//{
 		distvalues_pcc=new double*[treenodecnt];
 		initPCC=true;
-	}
+	//}
 	visited=new int[treenodecnt];
 	for(int i=0;i<treenodecnt;i++)
 	{
